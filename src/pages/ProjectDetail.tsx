@@ -5,9 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Calendar, User, AlertCircle, Plus } from "lucide-react";
 import { TaskKanban } from "@/components/kanban/TaskKanban";
 import { TaskFormModal } from "@/components/modals/TaskFormModal";
+import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
 import { cn } from "@/lib/utils";
 import { Priority, Task } from "@/types";
 import { getDeadlineStatus, hasFollowUpNeeded } from "@/utils/deadlineHelpers";
+import { useActivityLog } from "@/hooks/useActivityLog";
 import { toast } from "sonner";
 import { useState } from "react";
 import { format } from "date-fns";
@@ -23,10 +25,12 @@ const ProjectDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { getProjectById, updateProject } = useApp();
+  const { logActivity, getProjectLogs } = useActivityLog();
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
 
   const project = getProjectById(id!);
+  const activityLogs = project ? getProjectLogs(project.id) : [];
 
   if (!project) {
     return (
@@ -44,16 +48,71 @@ const ProjectDetail = () => {
   }
 
   const handleUpdateTask = (taskId: string, updates: Partial<Task>) => {
-    const updatedTasks = project.tasks.map((task) =>
-      task.id === taskId ? { ...task, ...updates } : task
+    const task = project.tasks.find((t) => t.id === taskId);
+    if (!task) return;
+
+    const updatedTasks = project.tasks.map((t) =>
+      t.id === taskId ? { ...t, ...updates } : t
     );
     updateProject(project.id, { tasks: updatedTasks });
+
+    // Log activity
+    if (updates.status && updates.status !== task.status) {
+      logActivity(
+        project.id,
+        "task_status_changed",
+        `Task "${task.title}" status changed`,
+        {
+          taskId,
+          oldStatus: task.status,
+          newStatus: updates.status,
+        }
+      );
+    } else if (updates.followUp !== undefined && updates.followUp !== task.followUp) {
+      logActivity(
+        project.id,
+        "follow_up_toggled",
+        `Follow-up ${updates.followUp ? "enabled" : "disabled"} for task "${task.title}"`,
+        { taskId, followUp: updates.followUp }
+      );
+    } else if (updates.deadline && updates.deadline.getTime() !== task.deadline?.getTime()) {
+      logActivity(
+        project.id,
+        "deadline_updated",
+        `Deadline updated for task "${task.title}"`,
+        {
+          taskId,
+          oldValue: task.deadline ? format(task.deadline, "MMM d, yyyy") : "None",
+          newValue: format(updates.deadline, "MMM d, yyyy"),
+        }
+      );
+    } else {
+      logActivity(
+        project.id,
+        "task_edited",
+        `Task "${task.title}" updated`,
+        { taskId }
+      );
+    }
+
     toast.success("Task updated");
   };
 
   const handleDeleteTask = (taskId: string) => {
-    const updatedTasks = project.tasks.filter((task) => task.id !== taskId);
+    const task = project.tasks.find((t) => t.id === taskId);
+    const updatedTasks = project.tasks.filter((t) => t.id !== taskId);
     updateProject(project.id, { tasks: updatedTasks });
+
+    // Log activity
+    if (task) {
+      logActivity(
+        project.id,
+        "task_deleted",
+        `Task "${task.title}" deleted`,
+        { taskId }
+      );
+    }
+
     toast.success("Task deleted");
   };
 
@@ -79,6 +138,15 @@ const ProjectDetail = () => {
       };
       const updatedTasks = [...project.tasks, newTask];
       updateProject(project.id, { tasks: updatedTasks });
+
+      // Log activity
+      logActivity(
+        project.id,
+        "task_created",
+        `Task "${newTask.title}" created`,
+        { taskId: newTask.id }
+      );
+
       toast.success("Task created");
     }
   };
@@ -185,6 +253,8 @@ const ProjectDetail = () => {
           </div>
         )}
       </div>
+
+      <ActivityTimeline logs={activityLogs} />
 
       <TaskFormModal
         open={isTaskModalOpen}

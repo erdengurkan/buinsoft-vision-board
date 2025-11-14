@@ -1,9 +1,12 @@
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Mail, Phone, Building2 } from "lucide-react";
 import { contacts } from "@/data/mockData";
 
 const Contacts = () => {
+  const navigate = useNavigate();
+
   return (
     <div className="space-y-6">
       <div>
@@ -15,7 +18,11 @@ const Contacts = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {contacts.map((contact) => (
-          <Card key={contact.id}>
+          <Card
+            key={contact.id}
+            className="cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => navigate(`/contacts/${contact.id}`)}
+          >
             <CardHeader>
               <CardTitle className="text-xl">{contact.name}</CardTitle>
               <CardDescription className="flex items-center gap-2">

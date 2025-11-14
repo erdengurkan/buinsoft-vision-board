@@ -51,3 +51,32 @@ export interface Contact {
   email: string;
   phone: string;
 }
+
+export type ActivityType =
+  | "project_created"
+  | "project_edited"
+  | "project_status_changed"
+  | "task_created"
+  | "task_edited"
+  | "task_deleted"
+  | "task_status_changed"
+  | "follow_up_toggled"
+  | "deadline_updated";
+
+export interface ActivityLog {
+  id: string;
+  projectId: string;
+  timestamp: Date;
+  user: string;
+  actionType: ActivityType;
+  description: string;
+  metadata?: {
+    taskId?: string;
+    oldStatus?: string;
+    newStatus?: string;
+    field?: string;
+    oldValue?: string;
+    newValue?: string;
+    [key: string]: any;
+  };
+}

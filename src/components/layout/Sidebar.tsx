@@ -1,9 +1,10 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Users, ContactRound, Settings } from "lucide-react";
+import { LayoutDashboard, Users, ContactRound, Settings, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Analytics", href: "/analytics", icon: BarChart3 },
   { name: "Team", href: "/team", icon: Users },
   { name: "Contacts", href: "/contacts", icon: ContactRound },
   { name: "Settings", href: "/settings", icon: Settings },

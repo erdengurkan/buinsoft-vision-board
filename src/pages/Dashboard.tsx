@@ -12,18 +12,34 @@ import { ProjectStatus, Project } from "@/types";
 import { KanbanColumn } from "@/components/kanban/KanbanColumn";
 import { ProjectCard } from "@/components/kanban/ProjectCard";
 import { ProjectFormModal } from "@/components/modals/ProjectFormModal";
-import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { DashboardFilters } from "@/components/dashboard/DashboardFilters";
+import { DashboardQuickActions } from "@/components/dashboard/DashboardQuickActions";
 import { useApp } from "@/contexts/AppContext";
+import { useActivityLog } from "@/hooks/useActivityLog";
+import { useDashboardFilters } from "@/hooks/useDashboardFilters";
 import { toast } from "sonner";
 
 const columns: ProjectStatus[] = ["Potential", "Active", "In Progress", "Done"];
 
 const Dashboard = () => {
   const { projects, updateProject, deleteProject, addProject } = useApp();
+  const { logActivity } = useActivityLog();
+  const {
+    filters,
+    sortBy,
+    filteredAndSortedProjects,
+    updateFilter,
+    toggleFilter,
+    clearFilters,
+    setSortBy,
+    hasActiveFilters,
+  } = useDashboardFilters(projects);
   const [activeProject, setActiveProject] = useState<any>(null);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | undefined>(undefined);
+  
+  // Get current user (placeholder - in real app this would come from auth)
+  const currentUser = "Emre Kılınç";
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -34,7 +50,7 @@ const Dashboard = () => {
   );
 
   const handleDragStart = (event: any) => {
-    const project = projects.find((p) => p.id === event.active.id);
+    const project = filteredAndSortedProjects.find((p) => p.id === event.active.id);
     if (project) {
       setActiveProject(project);
     }
@@ -52,9 +68,21 @@ const Dashboard = () => {
     const newStatus = over.id as ProjectStatus;
 
     if (columns.includes(newStatus)) {
-      const project = projects.find((p) => p.id === projectId);
+      const project = filteredAndSortedProjects.find((p) => p.id === projectId);
       if (project && project.status !== newStatus) {
         updateProject(projectId, { status: newStatus });
+        
+        // Log activity
+        logActivity(
+          projectId,
+          "project_status_changed",
+          `Project "${project.title}" status changed`,
+          {
+            oldStatus: project.status,
+            newStatus: newStatus,
+          }
+        );
+        
         toast.success(`Project moved to ${newStatus}`);
       }
     }
@@ -80,6 +108,15 @@ const Dashboard = () => {
   const handleSaveProject = (projectData: Partial<Project>) => {
     if (editingProject) {
       updateProject(editingProject.id, projectData);
+      
+      // Log activity
+      logActivity(
+        editingProject.id,
+        "project_edited",
+        `Project "${editingProject.title}" updated`,
+        {}
+      );
+      
       toast.success("Project updated");
     } else {
       const newProject: Project = {
@@ -98,12 +135,48 @@ const Dashboard = () => {
         tasks: [],
       };
       addProject(newProject);
+      
+      // Log activity
+      logActivity(
+        newProject.id,
+        "project_created",
+        `Project "${newProject.title}" created`,
+        {}
+      );
+      
       toast.success("Project created");
     }
   };
 
   const getProjectsByStatus = (status: ProjectStatus) => {
-    return projects.filter((project) => project.status === status);
+    return filteredAndSortedProjects.filter((project) => project.status === status);
+  };
+
+  // Quick action handlers
+  const handleNewTask = () => {
+    // Find first project or show message
+    if (filteredAndSortedProjects.length > 0) {
+      // In a real app, this would open a task modal with project selection
+      toast.info("Select a project to add a task, or navigate to a project detail page");
+    } else {
+      toast.info("Create a project first");
+    }
+  };
+
+  const handleMyTasks = () => {
+    updateFilter("assignee", [currentUser]);
+    toast.success(`Filtered to tasks assigned to ${currentUser}`);
+  };
+
+  const handleTodaysFollowUps = () => {
+    updateFilter("followUpRequired", true);
+    // Also filter to projects with tasks that have follow-up and deadline today
+    toast.success("Filtered to today's follow-ups");
+  };
+
+  const handleOverdueTasks = () => {
+    updateFilter("deadlineFilter", "overdue");
+    toast.success("Filtered to overdue tasks");
   };
 
   return (
@@ -115,11 +188,26 @@ const Dashboard = () => {
             Manage all your projects in one place
           </p>
         </div>
-        <Button onClick={handleCreateProject}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Project
-        </Button>
       </div>
+
+      <DashboardQuickActions
+        onNewProject={handleCreateProject}
+        onNewTask={handleNewTask}
+        onMyTasks={handleMyTasks}
+        onTodaysFollowUps={handleTodaysFollowUps}
+        onOverdueTasks={handleOverdueTasks}
+      />
+
+      <DashboardFilters
+        filters={filters}
+        sortBy={sortBy}
+        projects={projects}
+        onFilterChange={updateFilter}
+        onToggleFilter={toggleFilter}
+        onSortChange={setSortBy}
+        onClearFilters={clearFilters}
+        hasActiveFilters={hasActiveFilters}
+      />
 
       <DndContext
         sensors={sensors}
