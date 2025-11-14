@@ -15,6 +15,7 @@ const priorityColors: Record<Priority, string> = {
   Low: "bg-priority-low text-white",
   Medium: "bg-priority-medium text-white",
   High: "bg-priority-high text-white",
+  Critical: "bg-red-900 text-white",
 };
 
 export const TaskCard = ({ task, onDelete }: TaskCardProps) => {
