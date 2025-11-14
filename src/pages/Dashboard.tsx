@@ -15,12 +15,12 @@ import { ProjectFormModal } from "@/components/modals/ProjectFormModal";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
+import { useWorkflow } from "@/contexts/WorkflowContext";
 import { toast } from "sonner";
-
-const columns: ProjectStatus[] = ["Potential", "Active", "In Progress", "Done"];
 
 const Dashboard = () => {
   const { projects, updateProject, deleteProject, addProject } = useApp();
+  const { projectStatuses } = useWorkflow();
   const [activeProject, setActiveProject] = useState<any>(null);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | undefined>(undefined);
@@ -49,9 +49,10 @@ const Dashboard = () => {
     }
 
     const projectId = active.id as string;
-    const newStatus = over.id as ProjectStatus;
+    const newStatus = over.id as string;
 
-    if (columns.includes(newStatus)) {
+    const statusExists = projectStatuses.some((s) => s.name === newStatus);
+    if (statusExists) {
       const project = projects.find((p) => p.id === projectId);
       if (project && project.status !== newStatus) {
         updateProject(projectId, { status: newStatus });
@@ -88,7 +89,7 @@ const Dashboard = () => {
         client: projectData.client || "",
         assignee: projectData.assignee || "",
         priority: projectData.priority || "Medium",
-        status: projectData.status || "Potential",
+        status: projectData.status || projectStatuses[0]?.name || "Potential",
         startDate: projectData.startDate || new Date(),
         endDate: projectData.endDate || new Date(),
         deadline: projectData.deadline,
@@ -102,8 +103,8 @@ const Dashboard = () => {
     }
   };
 
-  const getProjectsByStatus = (status: ProjectStatus) => {
-    return projects.filter((project) => project.status === status);
+  const getProjectsByStatus = (statusName: string) => {
+    return projects.filter((project) => project.status === statusName);
   };
 
   return (
@@ -128,11 +129,12 @@ const Dashboard = () => {
         onDragEnd={handleDragEnd}
       >
         <div className="flex gap-4 overflow-x-auto pb-4">
-          {columns.map((status) => (
+          {projectStatuses.map((status) => (
             <KanbanColumn
-              key={status}
-              status={status}
-              projects={getProjectsByStatus(status)}
+              key={status.id}
+              status={status.name}
+              statusColor={status.color}
+              projects={getProjectsByStatus(status.name)}
               onDeleteProject={handleDeleteProject}
               onEditProject={handleEditProject}
             />
