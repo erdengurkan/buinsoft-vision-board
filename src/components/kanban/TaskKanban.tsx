@@ -11,6 +11,7 @@ import {
 import { Task, TaskStatus } from "@/types";
 import { TaskColumn } from "./TaskColumn";
 import { TaskCard } from "./TaskCard";
+import { useWorkflow } from "@/contexts/WorkflowContext";
 
 interface TaskKanbanProps {
   tasks: Task[];
@@ -18,13 +19,12 @@ interface TaskKanbanProps {
   onDeleteTask: (taskId: string) => void;
 }
 
-const columns: TaskStatus[] = ["Todo", "In Progress", "Testing", "Completed"];
-
 export const TaskKanban = ({
   tasks,
   onUpdateTask,
   onDeleteTask,
 }: TaskKanbanProps) => {
+  const { taskStatuses } = useWorkflow();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
 
   const sensors = useSensors(
@@ -51,17 +51,21 @@ export const TaskKanban = ({
     }
 
     const taskId = active.id as string;
-    const newStatus = over.id as TaskStatus;
+    const newStatus = over.id as string;
 
-    if (columns.includes(newStatus)) {
-      onUpdateTask(taskId, { status: newStatus });
+    const statusExists = taskStatuses.some((s) => s.name === newStatus);
+    if (statusExists) {
+      const task = tasks.find((t) => t.id === taskId);
+      if (task && task.status !== newStatus) {
+        onUpdateTask(taskId, { status: newStatus });
+      }
     }
 
     setActiveTask(null);
   };
 
-  const getTasksByStatus = (status: TaskStatus) => {
-    return tasks.filter((task) => task.status === status);
+  const getTasksByStatus = (statusName: string) => {
+    return tasks.filter((task) => task.status === statusName);
   };
 
   return (
@@ -72,11 +76,12 @@ export const TaskKanban = ({
       onDragEnd={handleDragEnd}
     >
       <div className="flex gap-4 overflow-x-auto pb-4">
-        {columns.map((status) => (
+        {taskStatuses.map((status) => (
           <TaskColumn
-            key={status}
-            status={status}
-            tasks={getTasksByStatus(status)}
+            key={status.id}
+            status={status.name}
+            statusColor={status.color}
+            tasks={getTasksByStatus(status.name)}
             onDeleteTask={onDeleteTask}
           />
         ))}

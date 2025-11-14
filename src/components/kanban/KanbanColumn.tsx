@@ -8,21 +8,16 @@ import { Project, ProjectStatus } from "@/types";
 import { cn } from "@/lib/utils";
 
 interface KanbanColumnProps {
-  status: ProjectStatus;
+  status: string;
+  statusColor?: string;
   projects: Project[];
   onDeleteProject: (id: string) => void;
   onEditProject: (project: Project) => void;
 }
 
-const statusColors: Record<ProjectStatus, string> = {
-  Potential: "border-t-status-potential",
-  Active: "border-t-status-active",
-  "In Progress": "border-t-status-progress",
-  Done: "border-t-status-done",
-};
-
 export const KanbanColumn = ({
   status,
+  statusColor = "border-t-primary",
   projects,
   onDeleteProject,
   onEditProject,
@@ -34,8 +29,9 @@ export const KanbanColumn = ({
       <div
         className={cn(
           "mb-4 rounded-lg border-t-4 bg-card p-4",
-          statusColors[status]
+          `border-t-[${statusColor}]`
         )}
+        style={{ borderTopColor: statusColor.replace('bg-', '#') }}
       >
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-foreground">{status}</h2>

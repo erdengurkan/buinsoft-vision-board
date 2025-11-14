@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { Task, Priority, TaskStatus } from "@/types";
 import { useState, useEffect } from "react";
 import { teamMembers } from "@/data/mockData";
+import { useWorkflow } from "@/contexts/WorkflowContext";
 
 interface TaskFormModalProps {
   open: boolean;
@@ -22,12 +23,13 @@ interface TaskFormModalProps {
 }
 
 export const TaskFormModal = ({ open, onOpenChange, task, onSave }: TaskFormModalProps) => {
+  const { taskStatuses } = useWorkflow();
   const [formData, setFormData] = useState<Partial<Task>>({
     title: "",
     description: "",
     assignee: teamMembers[0].name,
     priority: "Medium" as Priority,
-    status: "Todo" as TaskStatus,
+    status: taskStatuses[0]?.name || "Todo",
     deadline: undefined,
     followUp: false,
   });
@@ -41,7 +43,7 @@ export const TaskFormModal = ({ open, onOpenChange, task, onSave }: TaskFormModa
         description: "",
         assignee: teamMembers[0].name,
         priority: "Medium" as Priority,
-        status: "Todo" as TaskStatus,
+        status: taskStatuses[0]?.name || "Todo",
         deadline: undefined,
         followUp: false,
       });
@@ -99,15 +101,16 @@ export const TaskFormModal = ({ open, onOpenChange, task, onSave }: TaskFormModa
             </div>
             <div className="space-y-2">
               <Label htmlFor="status">Status</Label>
-              <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value as TaskStatus })}>
+              <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Todo">Todo</SelectItem>
-                  <SelectItem value="In Progress">In Progress</SelectItem>
-                  <SelectItem value="Testing">Testing</SelectItem>
-                  <SelectItem value="Completed">Completed</SelectItem>
+                  {taskStatuses.map((status) => (
+                    <SelectItem key={status.id} value={status.name}>
+                      {status.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
