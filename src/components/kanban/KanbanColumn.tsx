@@ -6,6 +6,7 @@ import {
 import { ProjectCard } from "./ProjectCard";
 import { Project, ProjectStatus } from "@/types";
 import { cn } from "@/lib/utils";
+import { getColorFromTailwind } from "@/utils/colorUtils";
 
 interface KanbanColumnProps {
   status: string;
@@ -27,11 +28,8 @@ export const KanbanColumn = ({
   return (
     <div className="flex flex-col min-w-[320px] flex-1">
       <div
-        className={cn(
-          "mb-4 rounded-lg border-t-4 bg-card p-4",
-          `border-t-[${statusColor}]`
-        )}
-        style={{ borderTopColor: statusColor.replace('bg-', '#') }}
+        className="mb-4 rounded-lg border-t-4 bg-card p-4"
+        style={{ borderTopColor: getColorFromTailwind(statusColor) }}
       >
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-foreground">{status}</h2>

@@ -17,12 +17,14 @@ interface TaskKanbanProps {
   tasks: Task[];
   onUpdateTask: (taskId: string, updates: Partial<Task>) => void;
   onDeleteTask: (taskId: string) => void;
+  onViewTaskDetails?: (task: Task) => void;
 }
 
 export const TaskKanban = ({
   tasks,
   onUpdateTask,
   onDeleteTask,
+  onViewTaskDetails,
 }: TaskKanbanProps) => {
   const { taskStatuses } = useWorkflow();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -83,6 +85,7 @@ export const TaskKanban = ({
             statusColor={status.color}
             tasks={getTasksByStatus(status.name)}
             onDeleteTask={onDeleteTask}
+            onViewTaskDetails={onViewTaskDetails}
           />
         ))}
       </div>

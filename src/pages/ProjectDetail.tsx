@@ -5,13 +5,17 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Calendar, User, AlertCircle, Plus } from "lucide-react";
 import { TaskKanban } from "@/components/kanban/TaskKanban";
 import { TaskFormModal } from "@/components/modals/TaskFormModal";
+import { TaskDetailModal } from "@/components/modals/TaskDetailModal";
 import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
+import { Comments } from "@/components/comments/Comments";
 import { cn } from "@/lib/utils";
 import { Priority, Task } from "@/types";
 import { getDeadlineStatus, hasFollowUpNeeded } from "@/utils/deadlineHelpers";
 import { useActivityLog } from "@/hooks/useActivityLog";
+import { useComments } from "@/hooks/useComments";
+import { useWorklog } from "@/hooks/useWorklog";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { format } from "date-fns";
 
 const priorityColors: Record<Priority, string> = {
@@ -26,11 +30,21 @@ const ProjectDetail = () => {
   const navigate = useNavigate();
   const { getProjectById, updateProject } = useApp();
   const { logActivity, getProjectLogs } = useActivityLog();
+  const { addComment, deleteComment, getProjectComments } = useComments();
+  const { getProjectTotalTime } = useWorklog();
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [isTaskDetailModalOpen, setIsTaskDetailModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
+  const [viewingTask, setViewingTask] = useState<Task | null>(null);
 
   const project = getProjectById(id!);
   const activityLogs = project ? getProjectLogs(project.id) : [];
+  const projectComments = project ? getProjectComments(project.id) : [];
+  const projectTotalTime = useMemo(() => {
+    if (!project) return 0;
+    const taskIds = project.tasks.map((t) => t.id);
+    return getProjectTotalTime(taskIds);
+  }, [project, getProjectTotalTime]);
 
   if (!project) {
     return (
@@ -244,6 +258,10 @@ const ProjectDetail = () => {
             tasks={project.tasks}
             onUpdateTask={handleUpdateTask}
             onDeleteTask={handleDeleteTask}
+            onViewTaskDetails={(task) => {
+              setViewingTask(task);
+              setIsTaskDetailModalOpen(true);
+            }}
           />
         ) : (
           <div className="text-center py-12 bg-muted/30 rounded-lg">
@@ -256,11 +274,45 @@ const ProjectDetail = () => {
 
       <ActivityTimeline logs={activityLogs} />
 
+      <Comments
+        projectId={project.id}
+        comments={projectComments}
+        onAddComment={(text) => {
+          addComment(project.id, undefined, text);
+        }}
+        onDeleteComment={deleteComment}
+        onTaskClick={(taskId) => {
+          const task = project.tasks.find((t) => t.id === taskId);
+          if (task) {
+            setViewingTask(task);
+            setIsTaskDetailModalOpen(true);
+          }
+        }}
+      />
+
+      {projectTotalTime > 0 && (
+        <div className="p-4 rounded-lg border border-border bg-muted/30">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">Total Time Spent on Project</span>
+            <span className="text-lg font-bold">
+              {Math.floor(projectTotalTime / 3600)}h {Math.floor((projectTotalTime % 3600) / 60)}m
+            </span>
+          </div>
+        </div>
+      )}
+
       <TaskFormModal
         open={isTaskModalOpen}
         onOpenChange={setIsTaskModalOpen}
         task={editingTask}
         onSave={handleSaveTask}
+      />
+
+      <TaskDetailModal
+        open={isTaskDetailModalOpen}
+        onOpenChange={setIsTaskDetailModalOpen}
+        task={viewingTask}
+        projectTitle={project.title}
       />
     </div>
   );

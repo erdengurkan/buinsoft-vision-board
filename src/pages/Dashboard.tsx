@@ -14,15 +14,16 @@ import { ProjectCard } from "@/components/kanban/ProjectCard";
 import { ProjectFormModal } from "@/components/modals/ProjectFormModal";
 import { DashboardFilters } from "@/components/dashboard/DashboardFilters";
 import { DashboardQuickActions } from "@/components/dashboard/DashboardQuickActions";
+import { RecentComments } from "@/components/dashboard/RecentComments";
 import { useApp } from "@/contexts/AppContext";
+import { useWorkflow } from "@/contexts/WorkflowContext";
 import { useActivityLog } from "@/hooks/useActivityLog";
 import { useDashboardFilters } from "@/hooks/useDashboardFilters";
 import { toast } from "sonner";
 
-const columns: ProjectStatus[] = ["Potential", "Active", "In Progress", "Done"];
-
 const Dashboard = () => {
   const { projects, updateProject, deleteProject, addProject } = useApp();
+  const { projectStatuses } = useWorkflow();
   const { logActivity } = useActivityLog();
   const {
     filters,
@@ -67,7 +68,8 @@ const Dashboard = () => {
     const projectId = active.id as string;
     const newStatus = over.id as ProjectStatus;
 
-    if (columns.includes(newStatus)) {
+    const statusExists = projectStatuses.some((s) => s.name === newStatus);
+    if (statusExists) {
       const project = filteredAndSortedProjects.find((p) => p.id === projectId);
       if (project && project.status !== newStatus) {
         updateProject(projectId, { status: newStatus });
@@ -209,29 +211,39 @@ const Dashboard = () => {
         hasActiveFilters={hasActiveFilters}
       />
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {columns.map((status) => (
-            <KanbanColumn
-              key={status}
-              status={status}
-              projects={getProjectsByStatus(status)}
-              onDeleteProject={handleDeleteProject}
-              onEditProject={handleEditProject}
-            />
-          ))}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="lg:col-span-3">
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCorners}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="flex gap-4 overflow-x-auto pb-4">
+              {projectStatuses
+                .sort((a, b) => a.order - b.order)
+                .map((statusColumn) => (
+                  <KanbanColumn
+                    key={statusColumn.id}
+                    status={statusColumn.name}
+                    statusColor={statusColumn.color}
+                    projects={getProjectsByStatus(statusColumn.name)}
+                    onDeleteProject={handleDeleteProject}
+                    onEditProject={handleEditProject}
+                  />
+                ))}
+            </div>
+            <DragOverlay>
+              {activeProject ? (
+                <ProjectCard project={activeProject} onDelete={() => {}} onEdit={() => {}} />
+              ) : null}
+            </DragOverlay>
+          </DndContext>
         </div>
-        <DragOverlay>
-          {activeProject ? (
-            <ProjectCard project={activeProject} onDelete={() => {}} onEdit={() => {}} />
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+        <div className="lg:col-span-1">
+          <RecentComments />
+        </div>
+      </div>
 
       <ProjectFormModal
         open={isProjectModalOpen}

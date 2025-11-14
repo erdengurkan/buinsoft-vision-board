@@ -6,12 +6,14 @@ import {
 import { TaskCard } from "./TaskCard";
 import { Task, TaskStatus } from "@/types";
 import { cn } from "@/lib/utils";
+import { getColorFromTailwind } from "@/utils/colorUtils";
 
 interface TaskColumnProps {
   status: string;
   statusColor?: string;
   tasks: Task[];
   onDeleteTask: (id: string) => void;
+  onViewTaskDetails?: (task: Task) => void;
 }
 
 export const TaskColumn = ({
@@ -19,16 +21,15 @@ export const TaskColumn = ({
   statusColor = "border-t-primary",
   tasks,
   onDeleteTask,
+  onViewTaskDetails,
 }: TaskColumnProps) => {
   const { setNodeRef } = useDroppable({ id: status });
 
   return (
     <div className="flex flex-col min-w-[280px] flex-1">
       <div
-        className={cn(
-          "mb-4 rounded-lg border-t-4 bg-card p-3"
-        )}
-        style={{ borderTopColor: statusColor.replace('bg-', '#') }}
+        className="mb-4 rounded-lg border-t-4 bg-card p-3"
+        style={{ borderTopColor: statusColor ? getColorFromTailwind(statusColor) : undefined }}
       >
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-foreground">{status}</h3>
@@ -44,7 +45,12 @@ export const TaskColumn = ({
           strategy={verticalListSortingStrategy}
         >
           {tasks.map((task) => (
-            <TaskCard key={task.id} task={task} onDelete={onDeleteTask} />
+            <TaskCard 
+              key={task.id} 
+              task={task} 
+              onDelete={onDeleteTask}
+              onViewDetails={onViewTaskDetails}
+            />
           ))}
         </SortableContext>
       </div>

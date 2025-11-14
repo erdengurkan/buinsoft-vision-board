@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 interface TaskCardProps {
   task: Task;
   onDelete: (id: string) => void;
+  onViewDetails?: (task: Task) => void;
 }
 
 const priorityColors: Record<Priority, string> = {
@@ -18,7 +19,7 @@ const priorityColors: Record<Priority, string> = {
   Critical: "bg-red-900 text-white",
 };
 
-export const TaskCard = ({ task, onDelete }: TaskCardProps) => {
+export const TaskCard = ({ task, onDelete, onViewDetails }: TaskCardProps) => {
   const {
     attributes,
     listeners,
@@ -59,7 +60,10 @@ export const TaskCard = ({ task, onDelete }: TaskCardProps) => {
       </div>
 
       <div className="space-y-2 pr-6">
-        <h4 className="font-medium text-sm text-card-foreground">
+        <h4 
+          className="font-medium text-sm text-card-foreground cursor-pointer hover:text-primary transition-colors"
+          onClick={() => onViewDetails?.(task)}
+        >
           {task.title}
         </h4>
         {task.description && (

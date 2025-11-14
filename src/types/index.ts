@@ -8,6 +8,16 @@ export interface Label {
   color: string;
 }
 
+export interface WorklogEntry {
+  id: string;
+  taskId: string;
+  durationMs: number; // in milliseconds
+  startedAt: Date;
+  stoppedAt: Date;
+  user: string;
+  description?: string;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -18,6 +28,16 @@ export interface Task {
   createdAt: Date;
   deadline?: Date;
   followUp: boolean;
+  worklog?: WorklogEntry[];
+}
+
+export interface Comment {
+  id: string;
+  projectId: string;
+  taskId?: string; // optional link to task
+  text: string;
+  user: string;
+  timestamp: Date;
 }
 
 export interface Project {
