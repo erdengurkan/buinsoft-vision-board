@@ -1,24 +1,28 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Project, Priority } from "@/types";
-import { Calendar, User, Trash2 } from "lucide-react";
+import { Calendar, User, Trash2, AlertCircle, Edit } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { getDeadlineStatus, getDeadlineColor, hasFollowUpNeeded } from "@/utils/deadlineHelpers";
+import { format } from "date-fns";
 
 interface ProjectCardProps {
   project: Project;
   onDelete: (id: string) => void;
+  onEdit: (project: Project) => void;
 }
 
 const priorityColors: Record<Priority, string> = {
   Low: "bg-priority-low text-white",
   Medium: "bg-priority-medium text-white",
   High: "bg-priority-high text-white",
+  Critical: "bg-red-900 text-white",
 };
 
-export const ProjectCard = ({ project, onDelete }: ProjectCardProps) => {
+export const ProjectCard = ({ project, onDelete, onEdit }: ProjectCardProps) => {
   const navigate = useNavigate();
   const {
     attributes,
@@ -43,13 +47,22 @@ export const ProjectCard = ({ project, onDelete }: ProjectCardProps) => {
     onDelete(project.id);
   };
 
+  const handleEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onEdit(project);
+  };
+
+  const deadlineStatus = getDeadlineStatus(project.deadline);
+  const needsFollowUp = hasFollowUpNeeded(project.tasks);
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
         "group relative rounded-lg border border-border bg-card p-4 shadow-sm transition-all hover:shadow-md cursor-pointer",
-        isDragging && "opacity-50 shadow-lg"
+        isDragging && "opacity-50 shadow-lg",
+        getDeadlineColor(deadlineStatus)
       )}
       onClick={handleClick}
     >
@@ -62,6 +75,13 @@ export const ProjectCard = ({ project, onDelete }: ProjectCardProps) => {
       </div>
 
       <div className="space-y-3">
+        {needsFollowUp && (
+          <div className="flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400 font-medium">
+            <AlertCircle className="h-3 w-3" />
+            <span>Follow-up Required</span>
+          </div>
+        )}
+        
         <div>
           <h3 className="font-semibold text-card-foreground mb-1 pr-8">
             {project.title}
@@ -91,23 +111,47 @@ export const ProjectCard = ({ project, onDelete }: ProjectCardProps) => {
           </Badge>
         </div>
 
-        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-          <Calendar className="h-3 w-3" />
-          <span>
-            {project.startDate.toLocaleDateString()} -{" "}
-            {project.endDate.toLocaleDateString()}
-          </span>
-        </div>
+        {project.deadline && (
+          <div className={cn(
+            "flex items-center gap-1 text-xs font-medium",
+            deadlineStatus === "overdue" ? "text-red-600 dark:text-red-400" :
+            deadlineStatus === "soon" ? "text-orange-600 dark:text-orange-400" :
+            "text-muted-foreground"
+          )}>
+            <Calendar className="h-3 w-3" />
+            <span>Due: {format(project.deadline, "MMM d, yyyy")}</span>
+          </div>
+        )}
+
+        {!project.deadline && (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Calendar className="h-3 w-3" />
+            <span>
+              {project.startDate.toLocaleDateString()} -{" "}
+              {project.endDate.toLocaleDateString()}
+            </span>
+          </div>
+        )}
       </div>
 
-      <Button
-        variant="ghost"
-        size="icon"
-        className="absolute bottom-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-        onClick={handleDelete}
-      >
-        <Trash2 className="h-3 w-3 text-destructive" />
-      </Button>
+      <div className="absolute bottom-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6"
+          onClick={handleEdit}
+        >
+          <Edit className="h-3 w-3 text-primary" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6"
+          onClick={handleDelete}
+        >
+          <Trash2 className="h-3 w-3 text-destructive" />
+        </Button>
+      </div>
     </div>
   );
 };

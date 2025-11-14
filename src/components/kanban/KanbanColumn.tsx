@@ -11,6 +11,7 @@ interface KanbanColumnProps {
   status: ProjectStatus;
   projects: Project[];
   onDeleteProject: (id: string) => void;
+  onEditProject: (project: Project) => void;
 }
 
 const statusColors: Record<ProjectStatus, string> = {
@@ -24,6 +25,7 @@ export const KanbanColumn = ({
   status,
   projects,
   onDeleteProject,
+  onEditProject,
 }: KanbanColumnProps) => {
   const { setNodeRef } = useDroppable({ id: status });
 
@@ -55,6 +57,7 @@ export const KanbanColumn = ({
               key={project.id}
               project={project}
               onDelete={onDeleteProject}
+              onEdit={onEditProject}
             />
           ))}
         </SortableContext>

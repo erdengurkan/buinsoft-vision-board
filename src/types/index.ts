@@ -1,4 +1,4 @@
-export type Priority = "Low" | "Medium" | "High";
+export type Priority = "Low" | "Medium" | "High" | "Critical";
 export type ProjectStatus = "Potential" | "Active" | "In Progress" | "Done";
 export type TaskStatus = "Todo" | "In Progress" | "Testing" | "Completed";
 
@@ -16,6 +16,8 @@ export interface Task {
   assignee: string;
   priority: Priority;
   createdAt: Date;
+  deadline?: Date;
+  followUp: boolean;
 }
 
 export interface Project {
@@ -27,6 +29,8 @@ export interface Project {
   status: ProjectStatus;
   startDate: Date;
   endDate: Date;
+  deadline?: Date;
+  followUp: boolean;
   labels: Label[];
   description: string;
   tasks: Task[];
