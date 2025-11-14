@@ -8,20 +8,15 @@ import { Task, TaskStatus } from "@/types";
 import { cn } from "@/lib/utils";
 
 interface TaskColumnProps {
-  status: TaskStatus;
+  status: string;
+  statusColor?: string;
   tasks: Task[];
   onDeleteTask: (id: string) => void;
 }
 
-const statusColors: Record<TaskStatus, string> = {
-  Todo: "border-t-blue-500",
-  "In Progress": "border-t-yellow-500",
-  Testing: "border-t-orange-500",
-  Completed: "border-t-green-500",
-};
-
 export const TaskColumn = ({
   status,
+  statusColor = "border-t-primary",
   tasks,
   onDeleteTask,
 }: TaskColumnProps) => {
@@ -31,9 +26,9 @@ export const TaskColumn = ({
     <div className="flex flex-col min-w-[280px] flex-1">
       <div
         className={cn(
-          "mb-4 rounded-lg border-t-4 bg-card p-3",
-          statusColors[status]
+          "mb-4 rounded-lg border-t-4 bg-card p-3"
         )}
+        style={{ borderTopColor: statusColor.replace('bg-', '#') }}
       >
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-foreground">{status}</h3>

@@ -1,6 +1,6 @@
 export type Priority = "Low" | "Medium" | "High" | "Critical";
-export type ProjectStatus = "Potential" | "Active" | "In Progress" | "Done";
-export type TaskStatus = "Todo" | "In Progress" | "Testing" | "Completed";
+export type ProjectStatus = string;
+export type TaskStatus = string;
 
 export interface Label {
   id: string;

@@ -13,8 +13,8 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Project, Priority, ProjectStatus } from "@/types";
 import { useState, useEffect } from "react";
-import { labels as availableLabels } from "@/data/mockData";
 import { teamMembers } from "@/data/mockData";
+import { useWorkflow } from "@/contexts/WorkflowContext";
 
 interface ProjectFormModalProps {
   open: boolean;
@@ -24,12 +24,13 @@ interface ProjectFormModalProps {
 }
 
 export const ProjectFormModal = ({ open, onOpenChange, project, onSave }: ProjectFormModalProps) => {
+  const { projectStatuses, labels: availableLabels } = useWorkflow();
   const [formData, setFormData] = useState<Partial<Project>>({
     title: "",
     client: "",
     assignee: teamMembers[0].name,
     priority: "Medium" as Priority,
-    status: "Potential" as ProjectStatus,
+    status: projectStatuses[0]?.name || "Potential",
     description: "",
     startDate: new Date(),
     endDate: new Date(),
@@ -47,7 +48,7 @@ export const ProjectFormModal = ({ open, onOpenChange, project, onSave }: Projec
         client: "",
         assignee: teamMembers[0].name,
         priority: "Medium" as Priority,
-        status: "Potential" as ProjectStatus,
+        status: projectStatuses[0]?.name || "Potential",
         description: "",
         startDate: new Date(),
         endDate: new Date(),
@@ -128,15 +129,16 @@ export const ProjectFormModal = ({ open, onOpenChange, project, onSave }: Projec
             </div>
             <div className="space-y-2">
               <Label htmlFor="status">Status</Label>
-              <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value as ProjectStatus })}>
+              <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Potential">Potential</SelectItem>
-                  <SelectItem value="Active">Active</SelectItem>
-                  <SelectItem value="In Progress">In Progress</SelectItem>
-                  <SelectItem value="Done">Done</SelectItem>
+                  {projectStatuses.map((status) => (
+                    <SelectItem key={status.id} value={status.name}>
+                      {status.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
