@@ -18,6 +18,16 @@ export interface WorklogEntry {
   description?: string;
 }
 
+export interface FlowDiagram {
+  nodes: any[];
+  edges: any[];
+  viewport?: {
+    x: number;
+    y: number;
+    zoom: number;
+  };
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -29,6 +39,7 @@ export interface Task {
   deadline?: Date;
   followUp: boolean;
   worklog?: WorklogEntry[];
+  flowDiagram?: FlowDiagram;
 }
 
 export interface Comment {

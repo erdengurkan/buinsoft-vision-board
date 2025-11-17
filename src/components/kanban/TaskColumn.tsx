@@ -40,19 +40,23 @@ export const TaskColumn = ({
         ref={setNodeRef}
         className="flex-1 space-y-2 rounded-lg bg-muted/30 p-2 min-h-[150px]"
       >
-        <SortableContext
-          items={tasks.map((t) => t.id)}
-          strategy={verticalListSortingStrategy}
-        >
-          {tasks.map((task) => (
-            <TaskCard 
-              key={task.id} 
-              task={task} 
-              onDelete={onDeleteTask}
-              onViewDetails={onViewTaskDetails}
-            />
-          ))}
-        </SortableContext>
+        {tasks.length > 0 ? (
+          <SortableContext
+            items={tasks.map((t) => t.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            {tasks.map((task) => (
+              <TaskCard 
+                key={task.id} 
+                task={task} 
+                onDelete={onDeleteTask}
+                onViewDetails={onViewTaskDetails}
+              />
+            ))}
+          </SortableContext>
+        ) : (
+          <div className="h-full min-h-[100px]" />
+        )}
       </div>
     </div>
   );

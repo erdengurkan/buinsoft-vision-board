@@ -2,17 +2,25 @@ import { Outlet } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 import { useTaskTimer } from "@/contexts/TaskTimerContext";
+import { useApp } from "@/contexts/AppContext";
 import { cn } from "@/lib/utils";
 
 export const AppLayout = () => {
-  const { isRunning } = useTaskTimer();
+  const { isRunning, activeTimer } = useTaskTimer();
+  const { projects } = useApp();
+  const task = activeTimer ? projects.find((p) => p.id === activeTimer.projectId)?.tasks.find((t) => t.id === activeTimer.taskId) : null;
+  const hasFlowBanner = isRunning && task?.flowDiagram;
 
   return (
-    <div className={cn("flex h-screen w-full overflow-hidden bg-background", isRunning && "pt-[48px]")}>
+    <div className={cn(
+      "flex h-screen w-full overflow-hidden bg-background",
+      isRunning && "pt-[48px]",
+      hasFlowBanner && "pt-[64px]"
+    )}>
       <Sidebar />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-auto p-6">
+        <main className="flex-1 overflow-auto p-6 relative">
           <Outlet />
         </main>
       </div>

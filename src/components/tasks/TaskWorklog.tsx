@@ -26,6 +26,7 @@ interface TaskWorklogProps {
   worklog: WorklogEntry[];
   onAddWorklog: (entry: Omit<WorklogEntry, "id">) => void;
   onDeleteWorklog: (entryId: string) => void;
+  compact?: boolean;
 }
 
 const DEFAULT_USER = "Buinsoft User";
@@ -55,6 +56,7 @@ export const TaskWorklog = ({
   worklog,
   onAddWorklog,
   onDeleteWorklog,
+  compact = false,
 }: TaskWorklogProps) => {
   const { activeTimer, elapsedSeconds, startTimer, stopTimer, isRunning: globalTimerRunning } = useTaskTimer();
   const { projects } = useApp();
@@ -123,6 +125,67 @@ export const TaskWorklog = ({
   const totalTimeSeconds = Math.floor(totalTimeMs / 1000);
   const currentElapsed = isThisTaskActive ? elapsedSeconds : 0;
   const totalTime = totalTimeSeconds + currentElapsed;
+
+  if (compact) {
+    return (
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <span className="text-lg font-mono font-bold">
+              {isThisTaskActive ? formatDuration(currentElapsed) : "0:00"}
+            </span>
+            {isThisTaskActive && (
+              <span className="text-xs text-red-600 dark:text-red-400 font-medium whitespace-nowrap">
+                🔴 Running
+              </span>
+            )}
+          </div>
+          <div className="text-sm text-muted-foreground whitespace-nowrap">
+            Total: {formatDuration(totalTime)}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {!isThisTaskActive ? (
+            <>
+              <Input
+                id="description-compact"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="What are you working on?"
+                className="h-8 w-40 text-xs"
+                disabled={isOtherTaskActive}
+              />
+              <Button 
+                onClick={handleStart} 
+                size="sm" 
+                className="gap-1.5"
+                disabled={isOtherTaskActive}
+              >
+                <Play className="h-3.5 w-3.5" />
+                Start
+              </Button>
+            </>
+          ) : (
+            <>
+              <Input
+                id="description-compact"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="What are you working on?"
+                className="h-8 w-40 text-xs"
+                disabled={true}
+              />
+              <Button onClick={handleStop} size="sm" variant="destructive" className="gap-1.5">
+                <Square className="h-3.5 w-3.5" />
+                Stop
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Card>

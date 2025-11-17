@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +15,7 @@ import { useActivityLog } from "@/hooks/useActivityLog";
 import { useComments } from "@/hooks/useComments";
 import { useWorklog } from "@/hooks/useWorklog";
 import { toast } from "sonner";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { format } from "date-fns";
 
 const priorityColors: Record<Priority, string> = {
@@ -28,6 +28,7 @@ const priorityColors: Record<Priority, string> = {
 const ProjectDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { getProjectById, updateProject } = useApp();
   const { logActivity, getProjectLogs } = useActivityLog();
   const { addComment, deleteComment, getProjectComments } = useComments();
@@ -38,6 +39,20 @@ const ProjectDetail = () => {
   const [viewingTask, setViewingTask] = useState<Task | null>(null);
 
   const project = getProjectById(id!);
+
+  // Check if taskId is in URL query params and open task modal
+  useEffect(() => {
+    const taskId = searchParams.get("taskId");
+    if (taskId && project) {
+      const task = project.tasks.find((t) => t.id === taskId);
+      if (task) {
+        setViewingTask(task);
+        setIsTaskDetailModalOpen(true);
+        // Remove taskId from URL after opening modal
+        setSearchParams({});
+      }
+    }
+  }, [searchParams, project, setSearchParams]);
   const activityLogs = project ? getProjectLogs(project.id) : [];
   const projectComments = project ? getProjectComments(project.id) : [];
   const projectTotalTime = useMemo(() => {

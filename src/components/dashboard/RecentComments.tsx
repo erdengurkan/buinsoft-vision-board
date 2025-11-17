@@ -1,13 +1,34 @@
+import { useState } from "react";
 import { useRecentComments } from "@/hooks/useRecentComments";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, User, ArrowRight } from "lucide-react";
+import { MessageSquare, User, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
 import { cn } from "@/lib/utils";
 
-export const RecentComments = () => {
+interface RecentCommentsProps {
+  onCollapseChange?: (isCollapsed: boolean) => void;
+  isCollapsed?: boolean;
+}
+
+export const RecentComments = ({ onCollapseChange, isCollapsed: externalIsCollapsed }: RecentCommentsProps) => {
+  const [internalIsCollapsed, setInternalIsCollapsed] = useState(false);
+  
+  // Use external state if provided, otherwise use internal state
+  const isCollapsed = externalIsCollapsed !== undefined ? externalIsCollapsed : internalIsCollapsed;
+
+  const handleToggleCollapse = () => {
+    const newState = !isCollapsed;
+    if (externalIsCollapsed === undefined) {
+      // Only update internal state if not controlled externally
+      setInternalIsCollapsed(newState);
+    }
+    // Always call the callback
+    onCollapseChange?.(newState);
+  };
+
   const navigate = useNavigate();
   const { projects } = useApp();
   const { recentComments } = useRecentComments(10);
@@ -15,7 +36,12 @@ export const RecentComments = () => {
   const handleCommentClick = (comment: typeof recentComments[0]) => {
     const project = projects.find((p) => p.id === comment.projectId);
     if (project) {
-      navigate(`/project/${project.id}`);
+      // If it's a task comment, navigate to project with taskId query param
+      if (comment.taskId) {
+        navigate(`/project/${project.id}?taskId=${comment.taskId}`);
+      } else {
+        navigate(`/project/${project.id}`);
+      }
     }
   };
 
@@ -39,8 +65,31 @@ export const RecentComments = () => {
     );
   }
 
+  if (isCollapsed) {
+    return (
+      <div className="relative">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-10 w-10 rounded-full border border-border bg-background shadow-sm hover:bg-muted"
+          onClick={handleToggleCollapse}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <Card>
+    <Card className="relative">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="absolute -left-3 top-1/2 -translate-y-1/2 z-10 h-8 w-8 rounded-full border border-border bg-background shadow-sm hover:bg-muted"
+        onClick={handleToggleCollapse}
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </Button>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <MessageSquare className="h-5 w-5" />

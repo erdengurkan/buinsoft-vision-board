@@ -14,6 +14,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -86,6 +87,10 @@ export const ActivityTimeline = ({ logs }: ActivityTimelineProps) => {
     );
   }
 
+  // Show only last 2 items, rest in accordion
+  const visibleLogs = logs.slice(0, 2);
+  const hiddenLogs = logs.slice(2);
+
   return (
     <Card>
       <CardHeader>
@@ -94,9 +99,33 @@ export const ActivityTimeline = ({ logs }: ActivityTimelineProps) => {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {logs.map((log, index) => (
-            <ActivityItem key={log.id} log={log} isLast={index === logs.length - 1} />
+          {visibleLogs.map((log, index) => (
+            <ActivityItem 
+              key={log.id} 
+              log={log} 
+              isLast={index === visibleLogs.length - 1 && hiddenLogs.length === 0} 
+            />
           ))}
+          {hiddenLogs.length > 0 && (
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="more-activities" className="border-none">
+                <AccordionTrigger className="py-2 text-sm text-muted-foreground hover:no-underline">
+                  Show {hiddenLogs.length} more activity{hiddenLogs.length !== 1 ? "ies" : ""}
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-4 pt-2">
+                    {hiddenLogs.map((log, index) => (
+                      <ActivityItem 
+                        key={log.id} 
+                        log={log} 
+                        isLast={index === hiddenLogs.length - 1} 
+                      />
+                    ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          )}
         </div>
       </CardContent>
     </Card>
