@@ -11,7 +11,7 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!email || !password) {
@@ -19,12 +19,24 @@ const Login = () => {
       return;
     }
 
-    // Dummy authentication
-    if (email === "admin@buinsoft.com" && password === "admin123") {
-      toast.success("Welcome back, Admin!");
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+      const res = await fetch(`${API_URL}/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Login failed");
+      }
+
+      toast.success(`Welcome back, ${data.user.name || "User"}!`);
       navigate("/dashboard");
-    } else {
-      toast.error("Invalid credentials. Try admin@buinsoft.com / admin123");
+    } catch (error: any) {
+      toast.error(error.message || "Invalid credentials");
     }
   };
 
@@ -68,7 +80,7 @@ const Login = () => {
             </Button>
           </form>
           <p className="mt-4 text-center text-xs text-muted-foreground">
-            Demo: admin@buinsoft.com / admin123
+            Demo: test@buinsoft.com / Test1234
           </p>
         </CardContent>
       </Card>

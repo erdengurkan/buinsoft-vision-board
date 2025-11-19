@@ -2,8 +2,12 @@ import { Router } from 'express';
 import * as projectController from '../controllers/projectController';
 import * as todoController from '../controllers/todoController';
 import * as workflowController from '../controllers/workflowController';
+import * as authController from '../controllers/authController';
 
 const router = Router();
+
+// Auth
+router.post('/login', authController.login);
 
 // Projects
 router.get('/projects', projectController.getProjects);
