@@ -24,7 +24,21 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     queryFn: async () => {
       const res = await fetch(`${API_URL}/projects`);
       if (!res.ok) throw new Error("Failed to fetch projects");
-      return res.json();
+      const data = await res.json();
+      // Parse date strings to Date objects
+      return data.map((project: any) => ({
+        ...project,
+        startDate: new Date(project.startDate),
+        endDate: new Date(project.endDate),
+        tasks: project.tasks?.map((task: any) => ({
+          ...task,
+          deadline: task.deadline ? new Date(task.deadline) : undefined,
+          worklogs: task.worklogs?.map((log: any) => ({
+            ...log,
+            date: new Date(log.date),
+          })),
+        })),
+      }));
     },
   });
 
