@@ -7,6 +7,7 @@ import { lazy, Suspense } from "react";
 import { AppProvider } from "./contexts/AppContext";
 import { WorkflowProvider } from "./contexts/WorkflowContext";
 import { TaskTimerProvider } from "./contexts/TaskTimerContext";
+import { TodoProvider } from "./contexts/TodoContext";
 import { AppLayout } from "./components/layout/AppLayout";
 import { GlobalTimerBar } from "./components/timer/GlobalTimerBar";
 import { TimerOutline } from "./components/timer/TimerOutline";
@@ -26,6 +27,7 @@ import NotFound from "./pages/NotFound";
 import "@xyflow/react";
 
 const TaskFlowEditorPage = lazy(() => import("./pages/TaskFlowEditor.tsx"));
+import Todos from "./pages/Todos";
 
 const queryClient = new QueryClient();
 
@@ -34,37 +36,40 @@ const App = () => (
     <AppProvider>
       <WorkflowProvider>
         <TaskTimerProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <TimerOutline>
-                <GlobalTimerBar />
-                <Routes>
-                  <Route path="/" element={<Login />} />
-                  <Route element={<AppLayout />}>
-                    <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/project/:id" element={<ProjectDetail />} />
-                    <Route
-                      path="/project/:projectId/task/:taskId/flow"
-                      element={
-                        <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading...</div>}>
-                          <TaskFlowEditorPage />
-                        </Suspense>
-                      }
-                    />
-                    <Route path="/analytics" element={<Analytics />} />
-                    <Route path="/calendar" element={<Calendar />} />
-                    <Route path="/team" element={<Team />} />
-                    <Route path="/contacts" element={<Contacts />} />
-                    <Route path="/contacts/:id" element={<ContactDetail />} />
-                    <Route path="/settings" element={<Settings />} />
-                  </Route>
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </TimerOutline>
-            </BrowserRouter>
-          </TooltipProvider>
+          <TodoProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <TimerOutline>
+                  <GlobalTimerBar />
+                  <Routes>
+                    <Route path="/" element={<Login />} />
+                    <Route element={<AppLayout />}>
+                      <Route path="/dashboard" element={<Dashboard />} />
+                      <Route path="/project/:id" element={<ProjectDetail />} />
+                      <Route
+                        path="/project/:projectId/task/:taskId/flow"
+                        element={
+                          <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading...</div>}>
+                            <TaskFlowEditorPage />
+                          </Suspense>
+                        }
+                      />
+                      <Route path="/analytics" element={<Analytics />} />
+                      <Route path="/calendar" element={<Calendar />} />
+                      <Route path="/todos" element={<Todos />} />
+                      <Route path="/team" element={<Team />} />
+                      <Route path="/contacts" element={<Contacts />} />
+                      <Route path="/contacts/:id" element={<ContactDetail />} />
+                      <Route path="/settings" element={<Settings />} />
+                    </Route>
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </TimerOutline>
+              </BrowserRouter>
+            </TooltipProvider>
+          </TodoProvider>
         </TaskTimerProvider>
       </WorkflowProvider>
     </AppProvider>

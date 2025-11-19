@@ -111,3 +111,13 @@ export interface ActivityLog {
     [key: string]: any;
   };
 }
+
+export interface Todo {
+  id: string;
+  title: string;
+  completed: boolean;
+  createdAt: Date;
+  deadline?: Date;
+  order?: number;
+  mentions?: string[]; // Array of user names/ids who are mentioned in this todo
+}

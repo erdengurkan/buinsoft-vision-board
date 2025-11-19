@@ -43,19 +43,19 @@ export const KanbanColumn = ({
         className="flex-1 space-y-3 rounded-lg bg-muted/30 p-3 min-h-[200px]"
       >
         {projects.length > 0 ? (
-          <SortableContext
-            items={projects.map((p) => p.id)}
-            strategy={verticalListSortingStrategy}
-          >
-            {projects.map((project) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                onDelete={onDeleteProject}
-                onEdit={onEditProject}
-              />
-            ))}
-          </SortableContext>
+        <SortableContext
+          items={projects.map((p) => p.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          {projects.map((project) => (
+            <ProjectCard
+              key={project.id}
+              project={project}
+              onDelete={onDeleteProject}
+              onEdit={onEditProject}
+            />
+          ))}
+        </SortableContext>
         ) : (
           <div className="h-full min-h-[100px]" />
         )}

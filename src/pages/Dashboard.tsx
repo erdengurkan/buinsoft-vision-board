@@ -326,33 +326,33 @@ const Dashboard = () => {
       <div className="relative">
         <div className={cn("grid gap-6", isCommentsCollapsed ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-4")}>
           <div className={cn(isCommentsCollapsed ? "col-span-1" : "lg:col-span-3")}>
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCorners}
-              onDragStart={handleDragStart}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={handleDragStart}
               onDragOver={handleDragOver}
-              onDragEnd={handleDragEnd}
-            >
-              <div className="flex gap-4 overflow-x-auto pb-4">
+        onDragEnd={handleDragEnd}
+      >
+        <div className="flex gap-4 overflow-x-auto pb-4">
                 {projectStatuses
                   .sort((a, b) => a.order - b.order)
                   .map((statusColumn) => (
-                    <KanbanColumn
+            <KanbanColumn
                       key={statusColumn.id}
                       status={statusColumn.name}
                       statusColor={statusColumn.color}
                       projects={getProjectsByStatus(statusColumn.name)}
-                      onDeleteProject={handleDeleteProject}
-                      onEditProject={handleEditProject}
-                    />
-                  ))}
-              </div>
-              <DragOverlay>
-                {activeProject ? (
-                  <ProjectCard project={activeProject} onDelete={() => {}} onEdit={() => {}} />
-                ) : null}
-              </DragOverlay>
-            </DndContext>
+              onDeleteProject={handleDeleteProject}
+              onEditProject={handleEditProject}
+            />
+          ))}
+        </div>
+        <DragOverlay>
+          {activeProject ? (
+            <ProjectCard project={activeProject} onDelete={() => {}} onEdit={() => {}} />
+          ) : null}
+        </DragOverlay>
+      </DndContext>
           </div>
           {!isCommentsCollapsed && (
             <div className="lg:col-span-1">

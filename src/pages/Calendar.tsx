@@ -1,12 +1,13 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
+import { useTodos } from "@/contexts/TodoContext";
 import { useDashboardFilters } from "@/hooks/useDashboardFilters";
 import { DashboardFilters } from "@/components/dashboard/DashboardFilters";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, CheckSquare } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek, isPast } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Priority } from "@/types";
@@ -19,9 +20,13 @@ const priorityColors: Record<Priority, string> = {
   Critical: "#dc2626",
 };
 
+// Get current user (in real app, this would come from auth context)
+const CURRENT_USER = "Emre Kılınç";
+
 export default function Calendar() {
   const navigate = useNavigate();
   const { projects } = useApp();
+  const { todos } = useTodos();
   const {
     filters,
     sortBy,
@@ -81,6 +86,39 @@ export default function Calendar() {
 
     return map;
   }, [filteredAndSortedProjects]);
+
+  const todosByDate = useMemo(() => {
+    const map = new Map<string, typeof todos>();
+    
+    todos.forEach((todo) => {
+      if (todo.deadline && !todo.completed) {
+        // Show todo if:
+        // 1. Todo has no mentions (it's a personal todo)
+        // 2. Current user is mentioned in the todo
+        const shouldShow = !todo.mentions || todo.mentions.length === 0 || todo.mentions.includes(CURRENT_USER);
+        
+        if (shouldShow) {
+          // Show todo from createdAt to deadline
+          const startDate = todo.createdAt ? new Date(todo.createdAt) : new Date();
+          const endDate = new Date(todo.deadline);
+          const start = format(startDate, "yyyy-MM-dd");
+          const end = format(endDate, "yyyy-MM-dd");
+          
+          days.forEach((day) => {
+            const dayKey = format(day, "yyyy-MM-dd");
+            if (dayKey >= start && dayKey <= end) {
+              if (!map.has(dayKey)) {
+                map.set(dayKey, []);
+              }
+              map.get(dayKey)!.push(todo);
+            }
+          });
+        }
+      }
+    });
+
+    return map;
+  }, [todos, days]);
 
   const handlePreviousMonth = () => {
     setCurrentDate(subMonths(currentDate, 1));
@@ -164,6 +202,7 @@ export default function Calendar() {
                 const dayKey = format(day, "yyyy-MM-dd");
                 const dayProjects = projectsByDate.get(dayKey) || [];
                 const dayTasks = tasksByDate.get(dayKey) || [];
+                const dayTodos = todosByDate.get(dayKey) || [];
                 const isCurrentMonth = isSameMonth(day, currentDate);
                 const isToday = isSameDay(day, new Date());
                 const dayEnd = new Date(day);
@@ -233,6 +272,30 @@ export default function Calendar() {
                           +{dayTasks.length - 2} tasks
                         </div>
                       )}
+
+                      {/* Todos */}
+                      {dayTodos.slice(0, 2).map((todo) => {
+                        const isOverdue = todo.deadline && isPast(todo.deadline);
+                        return (
+                          <div
+                            key={todo.id}
+                            onClick={() => navigate("/todos")}
+                            className={cn(
+                              "text-xs p-1 rounded cursor-pointer hover:opacity-80 transition-opacity truncate flex items-center gap-1",
+                              isOverdue ? "bg-orange-50 dark:bg-orange-950/20 border-l-2 border-orange-500" : "bg-blue-50 dark:bg-blue-950/20 border-l-2 border-blue-500"
+                            )}
+                            title={todo.title}
+                          >
+                            <CheckSquare className="h-3 w-3 flex-shrink-0" />
+                            {todo.title}
+                          </div>
+                        );
+                      })}
+                      {dayTodos.length > 2 && (
+                        <div className="text-xs text-muted-foreground">
+                          +{dayTodos.length - 2} todos
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -261,6 +324,14 @@ export default function Calendar() {
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 rounded border-l-2 border-red-500 bg-red-50 dark:bg-red-950/20" />
               <span>Overdue Task</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded border-l-2 border-blue-500 bg-blue-50 dark:bg-blue-950/20" />
+              <span>Todo</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded border-l-2 border-orange-500 bg-orange-50 dark:bg-orange-950/20" />
+              <span>Overdue Todo</span>
             </div>
           </div>
         </CardContent>
