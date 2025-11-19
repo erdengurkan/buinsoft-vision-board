@@ -1,7 +1,10 @@
 # Build Frontend
+# Build Frontend
 FROM node:20-alpine as frontend-builder
 WORKDIR /app/frontend
-COPY package*.json ./
+COPY package.json ./
+# Remove lock files to ensure fresh install
+RUN rm -f package-lock.json pnpm-lock.yaml bun.lockb
 RUN npm install
 COPY . .
 RUN npm run build
