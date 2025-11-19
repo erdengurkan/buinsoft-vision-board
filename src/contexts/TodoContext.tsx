@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, ReactNode } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Todo } from "@/types";
+import { toast } from "sonner";
 
 interface TodoContextType {
   todos: Todo[];
@@ -7,76 +9,87 @@ interface TodoContextType {
   updateTodo: (id: string, updates: Partial<Todo>) => void;
   deleteTodo: (id: string) => void;
   toggleTodo: (id: string) => void;
+  isLoading: boolean;
 }
 
 const TodoContext = createContext<TodoContextType | undefined>(undefined);
 
-const STORAGE_KEY = "buinsoft-vision-board-todos";
-
-// Helper function to serialize todos for localStorage
-const serializeTodos = (todos: Todo[]): string => {
-  return JSON.stringify(todos);
-};
-
-// Helper function to deserialize todos from localStorage
-const deserializeTodos = (json: string): Todo[] => {
-  const parsed = JSON.parse(json);
-  return parsed.map((todo: any) => ({
-    ...todo,
-    createdAt: new Date(todo.createdAt),
-    deadline: todo.deadline ? new Date(todo.deadline) : undefined,
-  }));
-};
-
-// Load todos from localStorage
-const loadTodos = (): Todo[] => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      return deserializeTodos(stored);
-    }
-  } catch (error) {
-    console.error("Error loading todos from localStorage:", error);
-  }
-  return [];
-};
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
 
 export const TodoProvider = ({ children }: { children: ReactNode }) => {
-  const [todos, setTodos] = useState<Todo[]>(loadTodos);
+  const queryClient = useQueryClient();
 
-  // Save todos to localStorage whenever they change
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, serializeTodos(todos));
-    } catch (error) {
-      console.error("Error saving todos to localStorage:", error);
-    }
-  }, [todos]);
+  const { data: todos = [], isLoading } = useQuery({
+    queryKey: ["todos"],
+    queryFn: async () => {
+      const res = await fetch(`${API_URL}/todos`);
+      if (!res.ok) throw new Error("Failed to fetch todos");
+      return res.json();
+    },
+  });
+
+  const addTodoMutation = useMutation({
+    mutationFn: async (todo: Omit<Todo, "id">) => {
+      const res = await fetch(`${API_URL}/todos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(todo),
+      });
+      if (!res.ok) throw new Error("Failed to create todo");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["todos"] });
+      toast.success("Todo added");
+    },
+  });
+
+  const updateTodoMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Todo> }) => {
+      const res = await fetch(`${API_URL}/todos/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) throw new Error("Failed to update todo");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["todos"] });
+    },
+  });
+
+  const deleteTodoMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`${API_URL}/todos/${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete todo");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["todos"] });
+      toast.success("Todo deleted");
+    },
+  });
 
   const addTodo = (todoData: Omit<Todo, "id">) => {
-    const newTodo: Todo = {
-      id: `todo-${Date.now()}-${Math.random()}`,
-      ...todoData,
-    };
-    setTodos((prev) => [...prev, newTodo]);
+    addTodoMutation.mutate(todoData);
   };
 
   const updateTodo = (id: string, updates: Partial<Todo>) => {
-    setTodos((prev) =>
-      prev.map((todo) => (todo.id === id ? { ...todo, ...updates } : todo))
-    );
+    updateTodoMutation.mutate({ id, updates });
   };
 
   const deleteTodo = (id: string) => {
-    setTodos((prev) => prev.filter((todo) => todo.id !== id));
+    deleteTodoMutation.mutate(id);
   };
 
   const toggleTodo = (id: string) => {
-    setTodos((prev) =>
-      prev.map((todo) =>
-        todo.id === id ? { ...todo, completed: !todo.completed } : todo
-      )
-    );
+    const todo = todos.find((t: Todo) => t.id === id);
+    if (todo) {
+      updateTodoMutation.mutate({ id, updates: { completed: !todo.completed } });
+    }
   };
 
   return (
@@ -87,6 +100,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
         updateTodo,
         deleteTodo,
         toggleTodo,
+        isLoading,
       }}
     >
       {children}

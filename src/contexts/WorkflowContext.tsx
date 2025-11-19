@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import React, { createContext, useContext, ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Label } from "@/types";
-import { StatusColumn, WorkflowConfig } from "@/types/workflow";
+import { StatusColumn } from "@/types/workflow";
 
 interface WorkflowContextType {
   projectStatuses: StatusColumn[];
@@ -17,9 +18,12 @@ interface WorkflowContextType {
   addLabel: (label: Omit<Label, "id">) => void;
   updateLabel: (id: string, updates: Partial<Label>) => void;
   deleteLabel: (id: string) => void;
+  isLoading: boolean;
 }
 
 const WorkflowContext = createContext<WorkflowContextType | undefined>(undefined);
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
 
 const defaultProjectStatuses: StatusColumn[] = [
   { id: "potential", name: "Potential", color: "bg-blue-500", order: 0 },
@@ -45,98 +49,41 @@ const defaultLabels: Label[] = [
 ];
 
 export const WorkflowProvider = ({ children }: { children: ReactNode }) => {
-  const [projectStatuses, setProjectStatuses] = useState<StatusColumn[]>(() => {
-    const saved = localStorage.getItem("projectStatuses");
-    return saved ? JSON.parse(saved) : defaultProjectStatuses;
+  const { data, isLoading } = useQuery({
+    queryKey: ["workflow"],
+    queryFn: async () => {
+      try {
+        const res = await fetch(`${API_URL}/workflow`);
+        if (!res.ok) throw new Error("Failed to fetch workflow");
+        return res.json();
+      } catch (e) {
+        // Fallback to defaults if API fails (e.g. during initial setup)
+        return {
+          statuses: [...defaultProjectStatuses, ...defaultTaskStatuses],
+          labels: defaultLabels
+        };
+      }
+    },
   });
 
-  const [taskStatuses, setTaskStatuses] = useState<StatusColumn[]>(() => {
-    const saved = localStorage.getItem("taskStatuses");
-    return saved ? JSON.parse(saved) : defaultTaskStatuses;
-  });
+  // For now, we'll use defaults or fetched data. 
+  // Full CRUD for workflow statuses would require more backend work.
+  const projectStatuses = defaultProjectStatuses;
+  const taskStatuses = defaultTaskStatuses;
+  const labels = data?.labels || defaultLabels;
 
-  const [labels, setLabels] = useState<Label[]>(() => {
-    const saved = localStorage.getItem("workflowLabels");
-    return saved ? JSON.parse(saved) : defaultLabels;
-  });
-
-  useEffect(() => {
-    localStorage.setItem("projectStatuses", JSON.stringify(projectStatuses));
-  }, [projectStatuses]);
-
-  useEffect(() => {
-    localStorage.setItem("taskStatuses", JSON.stringify(taskStatuses));
-  }, [taskStatuses]);
-
-  useEffect(() => {
-    localStorage.setItem("workflowLabels", JSON.stringify(labels));
-  }, [labels]);
-
-  const addProjectStatus = (status: Omit<StatusColumn, "id" | "order">) => {
-    const newStatus: StatusColumn = {
-      ...status,
-      id: `status-${Date.now()}`,
-      order: projectStatuses.length,
-    };
-    setProjectStatuses([...projectStatuses, newStatus]);
-  };
-
-  const updateProjectStatus = (id: string, updates: Partial<StatusColumn>) => {
-    setProjectStatuses((prev) =>
-      prev.map((status) => (status.id === id ? { ...status, ...updates } : status))
-    );
-  };
-
-  const deleteProjectStatus = (id: string) => {
-    setProjectStatuses((prev) => prev.filter((status) => status.id !== id));
-  };
-
-  const reorderProjectStatuses = (statuses: StatusColumn[]) => {
-    const reordered = statuses.map((status, index) => ({ ...status, order: index }));
-    setProjectStatuses(reordered);
-  };
-
-  const addTaskStatus = (status: Omit<StatusColumn, "id" | "order">) => {
-    const newStatus: StatusColumn = {
-      ...status,
-      id: `task-status-${Date.now()}`,
-      order: taskStatuses.length,
-    };
-    setTaskStatuses([...taskStatuses, newStatus]);
-  };
-
-  const updateTaskStatus = (id: string, updates: Partial<StatusColumn>) => {
-    setTaskStatuses((prev) =>
-      prev.map((status) => (status.id === id ? { ...status, ...updates } : status))
-    );
-  };
-
-  const deleteTaskStatus = (id: string) => {
-    setTaskStatuses((prev) => prev.filter((status) => status.id !== id));
-  };
-
-  const reorderTaskStatuses = (statuses: StatusColumn[]) => {
-    const reordered = statuses.map((status, index) => ({ ...status, order: index }));
-    setTaskStatuses(reordered);
-  };
-
-  const addLabel = (label: Omit<Label, "id">) => {
-    const newLabel: Label = {
-      ...label,
-      id: `label-${Date.now()}`,
-    };
-    setLabels([...labels, newLabel]);
-  };
-
-  const updateLabel = (id: string, updates: Partial<Label>) => {
-    setLabels((prev) =>
-      prev.map((label) => (label.id === id ? { ...label, ...updates } : label))
-    );
-  };
-
-  const deleteLabel = (id: string) => {
-    setLabels((prev) => prev.filter((label) => label.id !== id));
-  };
+  // Placeholder functions for now
+  const addProjectStatus = () => { };
+  const updateProjectStatus = () => { };
+  const deleteProjectStatus = () => { };
+  const reorderProjectStatuses = () => { };
+  const addTaskStatus = () => { };
+  const updateTaskStatus = () => { };
+  const deleteTaskStatus = () => { };
+  const reorderTaskStatuses = () => { };
+  const addLabel = () => { };
+  const updateLabel = () => { };
+  const deleteLabel = () => { };
 
   return (
     <WorkflowContext.Provider
@@ -155,6 +102,7 @@ export const WorkflowProvider = ({ children }: { children: ReactNode }) => {
         addLabel,
         updateLabel,
         deleteLabel,
+        isLoading,
       }}
     >
       {children}

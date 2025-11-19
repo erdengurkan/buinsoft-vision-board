@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, ReactNode } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Project } from "@/types";
-import { initialProjects } from "@/data/mockData";
+import { toast } from "sonner";
 
 interface AppContextType {
   projects: Project[];
@@ -8,78 +9,94 @@ interface AppContextType {
   deleteProject: (id: string) => void;
   addProject: (project: Project) => void;
   getProjectById: (id: string) => Project | undefined;
+  isLoading: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const STORAGE_KEY = "buinsoft-vision-board-projects";
-
-// Helper function to serialize projects for localStorage
-// JSON.stringify automatically converts Date objects to ISO strings
-const serializeProjects = (projects: Project[]): string => {
-  return JSON.stringify(projects);
-};
-
-// Helper function to deserialize projects from localStorage
-// Convert ISO date strings back to Date objects
-const deserializeProjects = (json: string): Project[] => {
-  const parsed = JSON.parse(json);
-  return parsed.map((project: any) => ({
-    ...project,
-    startDate: new Date(project.startDate),
-    endDate: new Date(project.endDate),
-    deadline: project.deadline ? new Date(project.deadline) : undefined,
-    tasks: project.tasks.map((task: any) => ({
-      ...task,
-      createdAt: new Date(task.createdAt),
-      deadline: task.deadline ? new Date(task.deadline) : undefined,
-    })),
-  }));
-};
-
-// Load projects from localStorage or use initial data
-const loadProjects = (): Project[] => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      return deserializeProjects(stored);
-    }
-  } catch (error) {
-    console.error("Error loading projects from localStorage:", error);
-  }
-  return initialProjects;
-};
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
-  const [projects, setProjects] = useState<Project[]>(loadProjects);
+  const queryClient = useQueryClient();
 
-  // Save projects to localStorage whenever they change
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, serializeProjects(projects));
-    } catch (error) {
-      console.error("Error saving projects to localStorage:", error);
-    }
-  }, [projects]);
+  const { data: projects = [], isLoading } = useQuery({
+    queryKey: ["projects"],
+    queryFn: async () => {
+      const res = await fetch(`${API_URL}/projects`);
+      if (!res.ok) throw new Error("Failed to fetch projects");
+      return res.json();
+    },
+  });
+
+  const addProjectMutation = useMutation({
+    mutationFn: async (project: Project) => {
+      const res = await fetch(`${API_URL}/projects`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(project),
+      });
+      if (!res.ok) throw new Error("Failed to create project");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      toast.success("Project created successfully");
+    },
+    onError: () => {
+      toast.error("Failed to create project");
+    },
+  });
+
+  const updateProjectMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Project> }) => {
+      const res = await fetch(`${API_URL}/projects/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) throw new Error("Failed to update project");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      toast.success("Project updated successfully");
+    },
+    onError: () => {
+      toast.error("Failed to update project");
+    },
+  });
+
+  const deleteProjectMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`${API_URL}/projects/${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete project");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      toast.success("Project deleted successfully");
+    },
+    onError: () => {
+      toast.error("Failed to delete project");
+    },
+  });
+
+  const addProject = (project: Project) => {
+    addProjectMutation.mutate(project);
+  };
 
   const updateProject = (id: string, updates: Partial<Project>) => {
-    setProjects((prev) =>
-      prev.map((project) =>
-        project.id === id ? { ...project, ...updates } : project
-      )
-    );
+    updateProjectMutation.mutate({ id, updates });
   };
 
   const deleteProject = (id: string) => {
-    setProjects((prev) => prev.filter((project) => project.id !== id));
-  };
-
-  const addProject = (project: Project) => {
-    setProjects((prev) => [...prev, project]);
+    deleteProjectMutation.mutate(id);
   };
 
   const getProjectById = (id: string) => {
-    return projects.find((project) => project.id === id);
+    return projects.find((project: Project) => project.id === id);
   };
 
   return (
@@ -90,6 +107,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         deleteProject,
         addProject,
         getProjectById,
+        isLoading,
       }}
     >
       {children}
