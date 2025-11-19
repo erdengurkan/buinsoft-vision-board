@@ -14,7 +14,7 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const queryClient = useQueryClient();

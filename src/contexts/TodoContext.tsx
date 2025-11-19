@@ -14,7 +14,7 @@ interface TodoContextType {
 
 const TodoContext = createContext<TodoContextType | undefined>(undefined);
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 export const TodoProvider = ({ children }: { children: ReactNode }) => {
   const queryClient = useQueryClient();
