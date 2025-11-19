@@ -13,15 +13,19 @@ const Login = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!email || !password) {
       toast.error("Please fill in all fields");
       return;
     }
 
-    // Mock authentication - any email/password works for demo
-    toast.success("Welcome to Buinsoft!");
-    navigate("/dashboard");
+    // Dummy authentication
+    if (email === "admin@buinsoft.com" && password === "admin123") {
+      toast.success("Welcome back, Admin!");
+      navigate("/dashboard");
+    } else {
+      toast.error("Invalid credentials. Try admin@buinsoft.com / admin123");
+    }
   };
 
   return (
@@ -64,7 +68,7 @@ const Login = () => {
             </Button>
           </form>
           <p className="mt-4 text-center text-xs text-muted-foreground">
-            Demo: Use any email and password to login
+            Demo: admin@buinsoft.com / admin123
           </p>
         </CardContent>
       </Card>
