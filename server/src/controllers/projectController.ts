@@ -63,16 +63,39 @@ export const updateProject = async (req: Request, res: Response) => {
         if (updates.endDate) updates.endDate = new Date(updates.endDate);
         if (updates.deadline) updates.deadline = new Date(updates.deadline);
 
+        // Build update data object
+        const updateData: any = { ...updates };
+
+        // Handle tasks if provided
+        if (tasks && Array.isArray(tasks)) {
+            updateData.tasks = {
+                deleteMany: {}, // Clear existing tasks
+                create: tasks.map((task: any) => ({
+                    title: task.title,
+                    description: task.description || '',
+                    status: task.status || 'Todo',
+                    assignee: task.assignee || '',
+                    priority: task.priority || 'Medium',
+                    deadline: task.deadline ? new Date(task.deadline) : undefined,
+                })),
+            };
+        }
+
         const project = await prisma.project.update({
             where: { id },
-            data: updates,
+            data: updateData,
             include: {
                 labels: true,
-                tasks: true,
+                tasks: {
+                    include: {
+                        worklogs: true,
+                    },
+                },
             },
         });
         res.json(project);
     } catch (error) {
+        console.error('Update project error:', error);
         res.status(500).json({ error: 'Failed to update project' });
     }
 };
