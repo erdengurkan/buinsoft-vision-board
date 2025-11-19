@@ -19,6 +19,7 @@ model Project {
   deadline    DateTime?
   followUp    Boolean   @default(false)
   description String
+  order       Int       @default(0)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -33,6 +34,7 @@ model Task {
   status      String
   assignee    String
   priority    String
+  order       Int       @default(0)
   createdAt   DateTime  @default(now())
   deadline    DateTime?
   followUp    Boolean   @default(false)
