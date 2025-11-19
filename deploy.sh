@@ -26,6 +26,7 @@ fi
 
 # Build and start containers
 echo "Starting application..."
-docker compose up -d --build
+docker compose build --no-cache
+docker compose up -d
 
 echo "Deployment complete! Application should be running on port 80."
