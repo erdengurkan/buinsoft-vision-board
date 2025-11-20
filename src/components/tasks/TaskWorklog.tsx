@@ -109,8 +109,30 @@ export const TaskWorklog = ({
     const startedAt = new Date(timerToStop.startedAt);
     const durationMs = stoppedAt.getTime() - startedAt.getTime();
 
+    // FIRST: Stop backend timer (this will broadcast timer_stopped event to all clients)
+    try {
+      const stopResponse = await fetch(`${API_URL}/timers/stop`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: DEFAULT_USER,
+          taskId: taskId, // Stop specific task timer
+        }),
+      });
+
+      if (!stopResponse.ok) {
+        console.error("Failed to stop backend timer", stopResponse.status);
+      }
+    } catch (error) {
+      console.error("Error stopping backend timer:", error);
+    }
+
+    // SECOND: Stop local timer (clears local state)
+    await stopTimer();
+    setDescription("");
+
+    // THIRD: Save worklog if duration is valid
     if (durationMs > 0) {
-      // Save to backend first
       try {
         const response = await fetch(`${API_URL}/worklogs`, {
           method: "POST",
@@ -143,6 +165,7 @@ export const TaskWorklog = ({
 
         // Invalidate queries to refresh data
         queryClient.invalidateQueries({ queryKey: ['projects'] });
+        queryClient.invalidateQueries({ queryKey: ['activeTimers'] });
         
         toast.success(`Logged ${formatDurationFromMs(durationMs)}`);
       } catch (error) {
@@ -150,10 +173,6 @@ export const TaskWorklog = ({
         toast.error("Failed to save worklog to server");
       }
     }
-
-    // Stop timer (will sync with backend via TaskTimerContext)
-    await stopTimer();
-    setDescription("");
   };
 
   const handleSwitchTimer = () => {

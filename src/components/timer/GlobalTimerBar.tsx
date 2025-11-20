@@ -90,10 +90,46 @@ export const GlobalTimerBar = () => {
       startedAt: startedAt.toISOString(),
       stoppedAt: stoppedAt.toISOString(),
       user: DEFAULT_USER,
+      isLocalTimer: !!localTimer,
+      isBackendTimer: !!backendTimer,
     });
 
+    // FIRST: Stop backend timer (this will broadcast timer_stopped event to all clients)
+    // SSE event will automatically clear local timer in TaskTimerContext
+    try {
+      console.log("🛑 GlobalTimerBar: Stopping backend timer");
+      const stopResponse = await fetch(`${API_URL}/timers/stop`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: DEFAULT_USER,
+          taskId: activeTimer.taskId, // Stop specific task timer
+        }),
+      });
+
+      if (!stopResponse.ok) {
+        console.error("❌ GlobalTimerBar: Failed to stop backend timer", stopResponse.status);
+        // If backend stop fails, still try to stop local timer
+        if (localTimer) {
+          await stopTimer();
+        }
+      } else {
+        console.log("✅ GlobalTimerBar: Backend timer stopped, SSE will clear local timer");
+        // Also stop local timer immediately for instant UI feedback
+        if (localTimer) {
+          await stopTimer();
+        }
+      }
+    } catch (error) {
+      console.error("❌ GlobalTimerBar: Error stopping backend timer:", error);
+      // If backend stop fails, still try to stop local timer
+      if (localTimer) {
+        await stopTimer();
+      }
+    }
+
+    // THIRD: Save worklog if duration is valid
     if (durationMs > 0) {
-      // Save to backend first
       try {
         const worklogData = {
           taskId: activeTimer.taskId,
@@ -133,6 +169,7 @@ export const GlobalTimerBar = () => {
 
         // Invalidate queries to refresh data
         queryClient.invalidateQueries({ queryKey: ['projects'] });
+        queryClient.invalidateQueries({ queryKey: ['activeTimers'] });
         
         toast.success(`Timer stopped and logged`);
       } catch (error) {
@@ -142,9 +179,6 @@ export const GlobalTimerBar = () => {
     } else {
       console.warn("⚠️ GlobalTimerBar: Duration is 0 or negative, skipping worklog save");
     }
-
-    // Stop timer (will sync with backend via TaskTimerContext)
-    await stopTimer();
   };
 
   return (

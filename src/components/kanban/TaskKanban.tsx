@@ -4,7 +4,10 @@ import {
   DragEndEvent,
   DragOverEvent,
   DragOverlay,
-  closestCorners,
+  closestCenter,
+  pointerWithin,
+  rectIntersection,
+  CollisionDetection,
   PointerSensor,
   useSensor,
   useSensors,
@@ -109,6 +112,25 @@ export const TaskKanban = ({
       document.body.style.cursor = '';
     };
   }, [isDragging]);
+
+  // Custom collision detection for better precision - uses pointer position
+  const collisionDetection: CollisionDetection = (args) => {
+    // First check if pointer is within any droppable area
+    const pointerCollisions = pointerWithin(args);
+    
+    if (pointerCollisions.length > 0) {
+      // If pointer is within a droppable, use closest center for precise positioning
+      return closestCenter({
+        ...args,
+        droppableContainers: args.droppableContainers.filter((container) =>
+          pointerCollisions.some((collision) => collision.id === container.id)
+        ),
+      });
+    }
+    
+    // Fallback to rect intersection
+    return rectIntersection(args);
+  };
 
   const handleDragStart = (event: any) => {
     const task = tasks.find((t) => t.id === event.active.id);
@@ -290,7 +312,7 @@ export const TaskKanban = ({
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={collisionDetection}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}

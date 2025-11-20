@@ -523,6 +523,12 @@ const ProjectDetail = () => {
                         <div className="space-y-2 max-h-48 overflow-y-auto border-t pt-2">
                           <h4 className="text-xs font-semibold text-muted-foreground uppercase mt-2">By Task</h4>
                           {Object.entries(byTask)
+                            .sort(([, a], [, b]) => {
+                              // Sort by total time (descending - max time first)
+                              const aTime = a.logs.reduce((sum, log) => sum + (log.durationMs || 0), 0);
+                              const bTime = b.logs.reduce((sum, log) => sum + (log.durationMs || 0), 0);
+                              return bTime - aTime;
+                            })
                             .map(([taskId, { title, logs }]) => {
                               const taskTimeMs = logs.reduce((sum, log) => sum + (log.durationMs || 0), 0);
                               const taskTimeSeconds = Math.floor(taskTimeMs / 1000);

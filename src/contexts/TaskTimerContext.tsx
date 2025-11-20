@@ -55,6 +55,33 @@ export const TaskTimerProvider = ({ children }: { children: ReactNode }) => {
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(loadTimer);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
+  // Listen to SSE timer_stopped events to clear local timer
+  useEffect(() => {
+    const API_URL = import.meta.env.VITE_API_URL || '/api';
+    const DEFAULT_USER = "Emre Kılınç"; // TODO: Get from auth context
+    
+    const eventSource = new EventSource(`${API_URL}/events`);
+    
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'timer_stopped' && data.userId === DEFAULT_USER) {
+          // Clear local timer when timer is stopped (from any browser)
+          console.log('🛑 SSE: Timer stopped event received, clearing local timer');
+          setActiveTimer(null);
+          saveTimer(null);
+          setElapsedSeconds(0);
+        }
+      } catch (error) {
+        console.error('Error parsing SSE message:', error);
+      }
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, []);
+
   // Calculate elapsed time from active timer
   useEffect(() => {
     if (activeTimer) {

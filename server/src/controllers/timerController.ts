@@ -12,6 +12,7 @@ const startTimerSchema = z.object({
 
 const stopTimerSchema = z.object({
   userId: z.string(),
+  taskId: z.string().optional(), // Optional: stop specific task timer
 });
 
 export const startTimer = async (req: Request, res: Response) => {
@@ -64,8 +65,14 @@ export const stopTimer = async (req: Request, res: Response) => {
   try {
     const data = stopTimerSchema.parse(req.body);
 
+    // Build where clause: stop specific task timer if taskId provided, otherwise stop all for user
+    const where: any = { userId: data.userId };
+    if (data.taskId) {
+      where.taskId = data.taskId;
+    }
+
     const timer = await prisma.activeTimer.findFirst({
-      where: { userId: data.userId },
+      where,
       include: {
         task: {
           select: {
@@ -79,8 +86,9 @@ export const stopTimer = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'No active timer found' });
     }
 
+    // Delete timer(s) matching the where clause
     await prisma.activeTimer.deleteMany({
-      where: { userId: data.userId },
+      where,
     });
 
     // Broadcast timer stop to all connected clients
