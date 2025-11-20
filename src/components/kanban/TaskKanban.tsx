@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -31,9 +31,14 @@ export const TaskKanban = ({
   onReorderTasks,
   onDeleteTask,
   onViewTaskDetails,
+  onCreateTask,
 }: TaskKanbanProps) => {
   const { taskStatuses } = useWorkflow();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -42,6 +47,65 @@ export const TaskKanban = ({
       },
     })
   );
+
+  // Mouse drag-to-scroll functionality
+  const handleMouseDown = (e: React.MouseEvent) => {
+    // Only start drag-to-scroll if clicking on empty space (not on a task or interactive element)
+    const target = e.target as HTMLElement;
+    // Check if clicking on interactive elements
+    if (
+      target.closest('[role="button"]') ||
+      target.closest('button') ||
+      target.closest('a') ||
+      target.closest('[data-dnd-kit-drag-handle]') ||
+      target.closest('[data-dnd-kit-sortable]')
+    ) {
+      return;
+    }
+
+    setIsDragging(true);
+    const container = scrollContainerRef.current;
+    if (container) {
+      setStartX(e.pageX - container.offsetLeft);
+      setScrollLeft(container.scrollLeft);
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !scrollContainerRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - (scrollContainerRef.current.offsetLeft || 0);
+    const walk = (x - startX) * 2; // Scroll speed multiplier
+    scrollContainerRef.current.scrollLeft = scrollLeft - walk;
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleMouseLeave = () => {
+    setIsDragging(false);
+  };
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    if (isDragging) {
+      container.style.cursor = 'grabbing';
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'grabbing';
+    } else {
+      container.style.cursor = 'grab';
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    }
+
+    return () => {
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    };
+  }, [isDragging]);
 
   const handleDragStart = (event: any) => {
     const task = tasks.find((t) => t.id === event.active.id);
@@ -228,7 +292,14 @@ export const TaskKanban = ({
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex gap-4 overflow-x-auto pb-4">
+      <div
+        ref={scrollContainerRef}
+        className="kanban-scroll-container flex gap-2 md:gap-4 overflow-x-auto pb-4 cursor-grab h-full"
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+      >
         {taskStatuses.map((status) => (
           <TaskColumn
             key={status.id}
@@ -238,6 +309,7 @@ export const TaskKanban = ({
             tasks={getTasksByStatus(status.name)}
             onDeleteTask={onDeleteTask}
             onViewTaskDetails={onViewTaskDetails}
+            onCreateTask={onCreateTask}
           />
         ))}
       </div>

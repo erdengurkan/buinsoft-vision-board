@@ -19,10 +19,11 @@ interface TaskFormModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   task?: Task;
+  defaultStatus?: string;
   onSave: (task: Partial<Task>) => void;
 }
 
-export const TaskFormModal = ({ open, onOpenChange, task, onSave }: TaskFormModalProps) => {
+export const TaskFormModal = ({ open, onOpenChange, task, defaultStatus, onSave }: TaskFormModalProps) => {
   const { taskStatuses } = useWorkflow();
   const [formData, setFormData] = useState<Partial<Task>>({
     title: "",
@@ -43,12 +44,12 @@ export const TaskFormModal = ({ open, onOpenChange, task, onSave }: TaskFormModa
         description: "",
         assignee: teamMembers[0].name,
         priority: "Medium" as Priority,
-        status: taskStatuses[0]?.name || "Todo",
+        status: defaultStatus || taskStatuses[0]?.name || "Todo",
         deadline: undefined,
         followUp: false,
       });
     }
-  }, [task, open]);
+  }, [task, open, defaultStatus, taskStatuses]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

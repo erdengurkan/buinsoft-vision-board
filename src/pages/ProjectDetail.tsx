@@ -2,7 +2,7 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, AlertCircle, Plus } from "lucide-react";
+import { ArrowLeft, Calendar, User, AlertCircle, Plus, ChevronUp, ChevronDown, Info, Clock, MessageSquare, Activity } from "lucide-react";
 import { TaskKanban } from "@/components/kanban/TaskKanban";
 import { TaskFormModal } from "@/components/modals/TaskFormModal";
 import { TaskDetailModal } from "@/components/modals/TaskDetailModal";
@@ -42,6 +42,10 @@ const ProjectDetail = () => {
   const [isTaskDetailModalOpen, setIsTaskDetailModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
   const [viewingTask, setViewingTask] = useState<Task | null>(null);
+  const [defaultTaskStatus, setDefaultTaskStatus] = useState<string | undefined>(undefined);
+  const [showActivityLog, setShowActivityLog] = useState(false);
+  const [showTimeSpent, setShowTimeSpent] = useState(false);
+  const [showComments, setShowComments] = useState(false);
 
   // Task mutations - MUST be before conditional returns (Rules of Hooks)
   const updateTaskMutation = useMutation({
@@ -275,8 +279,9 @@ const ProjectDetail = () => {
     }
   };
 
-  const handleCreateTask = () => {
+  const handleCreateTask = (status?: string) => {
     setEditingTask(undefined);
+    setDefaultTaskStatus(status);
     setIsTaskModalOpen(true);
   };
 
@@ -318,90 +323,99 @@ const ProjectDetail = () => {
   const needsFollowUp = hasFollowUpNeeded(project.tasks);
 
   return (
-    <div className="space-y-6">
-      <div>
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Compact Header - Single Line */}
+      <div className="flex items-center justify-between gap-3 shrink-0 px-6 pt-6 pb-4">
         <Button
           variant="ghost"
           size="sm"
           onClick={() => navigate("/dashboard")}
-          className="mb-4"
+          className="shrink-0"
         >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Dashboard
+          <ArrowLeft className="h-4 w-4" />
         </Button>
-
-        <div className="flex items-start justify-between">
-          <div className="space-y-2">
-            <h1 className="text-3xl font-bold text-foreground">
-              {project.title}
-            </h1>
-            <div className="flex flex-wrap gap-2 items-center text-sm text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <User className="h-4 w-4" />
-                <span>{project.assignee}</span>
-              </div>
-              <span>•</span>
-              <span>{project.client}</span>
-              <span>•</span>
-              <div className="flex items-center gap-1">
-                <Calendar className="h-4 w-4" />
-                <span>
-                  {project.startDate.toLocaleDateString()} -{" "}
-                  {project.endDate.toLocaleDateString()}
-                </span>
-              </div>
-            </div>
-            {project.deadline && (
+        
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <h1 className="text-xl font-bold text-foreground truncate">
+            {project.title}
+          </h1>
+          <span className="text-muted-foreground">•</span>
+          <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+            <User className="h-3 w-3" />
+            <span className="truncate">{project.assignee}</span>
+          </div>
+          <span className="text-muted-foreground">•</span>
+          <span className="text-xs text-muted-foreground truncate">{project.client}</span>
+          <span className="text-muted-foreground">•</span>
+          <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+            <Calendar className="h-3 w-3" />
+            <span className="truncate">
+              {format(project.startDate, "MMM d")} - {format(project.endDate, "MMM d")}
+            </span>
+          </div>
+          {project.deadline && (
+            <>
+              <span className="text-muted-foreground">•</span>
               <div className={cn(
-                "flex items-center gap-1 text-sm font-medium",
+                "flex items-center gap-1 text-xs font-medium shrink-0",
                 deadlineStatus === "overdue" ? "text-red-600 dark:text-red-400" :
                   deadlineStatus === "soon" ? "text-orange-600 dark:text-orange-400" :
                     "text-muted-foreground"
               )}>
-                <Calendar className="h-4 w-4" />
-                <span>Deadline: {format(project.deadline, "MMM d, yyyy")}</span>
+                <Calendar className="h-3 w-3" />
+                <span>{format(project.deadline, "MMM d")}</span>
               </div>
-            )}
-            {needsFollowUp && (
-              <div className="flex items-center gap-1 text-sm text-orange-600 dark:text-orange-400 font-medium">
-                <AlertCircle className="h-4 w-4" />
-                <span>Follow-up Required on Tasks</span>
+            </>
+          )}
+          {needsFollowUp && (
+            <>
+              <span className="text-muted-foreground">•</span>
+              <div className="flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400 font-medium shrink-0">
+                <AlertCircle className="h-3 w-3" />
+                <span>Follow-up</span>
               </div>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <Badge className={cn("text-sm", priorityColors[project.priority])}>
-              {project.priority}
-            </Badge>
-            <Badge variant="outline" className="text-sm">
-              {project.status}
-            </Badge>
-          </div>
+            </>
+          )}
+          {project.labels.length > 0 && (
+            <>
+              <span className="text-muted-foreground">•</span>
+              <div className="flex items-center gap-1 shrink-0">
+                {project.labels.slice(0, 2).map((label) => (
+                  <Badge
+                    key={label.id}
+                    variant="secondary"
+                    className={cn("text-xs px-1.5 py-0", label.color, "text-white")}
+                  >
+                    {label.name}
+                  </Badge>
+                ))}
+                {project.labels.length > 2 && (
+                  <span className="text-xs text-muted-foreground">+{project.labels.length - 2}</span>
+                )}
+              </div>
+            </>
+          )}
         </div>
-
-        <p className="text-muted-foreground mt-4">{project.description}</p>
-
-        <div className="flex flex-wrap gap-2 mt-4">
-          {project.labels.map((label) => (
-            <Badge
-              key={label.id}
-              variant="secondary"
-              className={cn("text-sm", label.color, "text-white")}
-            >
-              {label.name}
-            </Badge>
-          ))}
+        
+        <div className="flex items-center gap-2 shrink-0">
+          <Badge className={cn("text-xs px-2 py-0", priorityColors[project.priority])}>
+            {project.priority}
+          </Badge>
+          <Badge variant="outline" className="text-xs px-2 py-0">
+            {project.status}
+          </Badge>
         </div>
       </div>
 
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-foreground">Tasks</h2>
-          <Button onClick={handleCreateTask}>
-            <Plus className="h-4 w-4 mr-2" />
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <div className="flex items-center justify-between mb-3 px-6 shrink-0">
+          <h2 className="text-lg font-semibold text-foreground">Tasks</h2>
+          <Button size="sm" onClick={() => handleCreateTask()}>
+            <Plus className="h-4 w-4 mr-1" />
             New Task
           </Button>
         </div>
+        <div className="flex-1 min-h-0 px-6 pb-6 overflow-hidden">
         {project.tasks.length > 0 ? (
           <TaskKanban
             projectId={project.id}
@@ -417,6 +431,7 @@ const ProjectDetail = () => {
               setViewingTask(task);
               setIsTaskDetailModalOpen(true);
             }}
+            onCreateTask={handleCreateTask}
           />
         ) : (
           <div className="text-center py-12 bg-muted/30 rounded-lg">
@@ -425,108 +440,262 @@ const ProjectDetail = () => {
             </p>
           </div>
         )}
+        </div>
       </div>
 
-      {/* 3 Column Layout: Activity Log, Time Spent, Comments */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Activity Log Column */}
-        <div className="md:col-span-1">
-          <ActivityTimeline logs={activityLogs} />
-        </div>
-
-        {/* Time Spent Column */}
-        <div className="md:col-span-1">
-          <div className="p-4 rounded-lg border border-border bg-card">
-            <h3 className="text-lg font-semibold mb-2">Time Spent</h3>
-            {projectTotalTime > 0 ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b">
-                  <span className="text-sm text-muted-foreground">Total Project Time</span>
-                  <span className="text-lg font-bold">
-                    {Math.floor(projectTotalTime / 3600)}h {Math.floor((projectTotalTime % 3600) / 60)}m
-                  </span>
-                </div>
-                
-                {/* Task-level breakdown */}
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase">By Task</h4>
-                  {project.tasks
-                    .filter((task) => {
-                      const taskTime = task.worklogs?.reduce((sum, log) => sum + log.durationMs, 0) || 0;
-                      return taskTime > 0;
-                    })
-                    .map((task) => {
-                      const taskTime = task.worklogs?.reduce((sum, log) => sum + log.durationMs, 0) || 0;
-                      const taskTimeSeconds = Math.floor(taskTime / 1000);
-                      const hours = Math.floor(taskTimeSeconds / 3600);
-                      const minutes = Math.floor((taskTimeSeconds % 3600) / 60);
-                      
-                      // Group by user
-                      const byUser = task.worklogs?.reduce((acc: Record<string, number>, log) => {
-                        acc[log.user] = (acc[log.user] || 0) + log.durationMs;
-                        return acc;
-                      }, {}) || {};
-
-                      return (
-                        <div key={task.id} className="text-xs space-y-1">
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium truncate">{task.title}</span>
-                            <span className="text-muted-foreground">
-                              {hours}h {minutes}m
-                            </span>
-                          </div>
-                          {Object.entries(byUser).map(([user, timeMs]) => {
-                            const userTimeSeconds = Math.floor(timeMs / 1000);
-                            const userHours = Math.floor(userTimeSeconds / 3600);
-                            const userMinutes = Math.floor((userTimeSeconds % 3600) / 60);
-                            return (
-                              <div key={user} className="pl-2 text-muted-foreground flex items-center justify-between">
-                                <span className="truncate">{user}</span>
-                                <span>{userHours}h {userMinutes}m</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    })}
-                  {project.tasks.filter((task) => {
-                    const taskTime = task.worklogs?.reduce((sum, log) => sum + log.durationMs, 0) || 0;
-                    return taskTime > 0;
-                  }).length === 0 && (
-                    <p className="text-xs text-muted-foreground">No task time tracked yet</p>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No time tracked yet</p>
-            )}
+      {/* Floating Activity Log Panel */}
+      {showActivityLog && (
+        <div className="fixed bottom-4 right-4 z-50 w-[90vw] sm:w-96 max-h-[70vh] bg-background border border-border rounded-lg shadow-2xl flex flex-col">
+          <div className="flex items-center justify-between p-3 border-b border-border bg-muted/30">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <Activity className="h-4 w-4" />
+              Activity Log
+            </h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowActivityLog(false)}
+              className="h-6 w-6 p-0"
+            >
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="overflow-y-auto flex-1 p-4">
+            <ActivityTimeline logs={activityLogs} />
           </div>
         </div>
+      )}
 
-        {/* Comments Column */}
-        <div className="md:col-span-1">
-          <Comments
-            projectId={project.id}
-            comments={projectComments}
-            onAddComment={(text) => {
-              addComment(project.id, undefined, text);
-            }}
-            onDeleteComment={deleteComment}
-            onTaskClick={(taskId) => {
-              const task = project.tasks.find((t) => t.id === taskId);
-              if (task) {
-                setViewingTask(task);
-                setIsTaskDetailModalOpen(true);
-              }
-            }}
-          />
+      {/* Floating Time Spent Panel */}
+      {showTimeSpent && (
+        <div 
+          className="fixed bottom-4 z-50 w-[90vw] sm:w-96 max-h-[70vh] bg-background border border-border rounded-lg shadow-2xl flex flex-col" 
+          style={{ 
+            right: showActivityLog ? '420px' : '16px',
+            maxWidth: 'calc(100vw - 32px)'
+          }}
+        >
+          <div className="flex items-center justify-between p-3 border-b border-border bg-muted/30">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              Time Spent
+            </h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowTimeSpent(false)}
+              className="h-6 w-6 p-0"
+            >
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="overflow-y-auto flex-1 p-4">
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold">Time Spent</h3>
+              {(() => {
+                    // Collect all worklogs from all tasks
+                    const allWorklogs = project.tasks.flatMap(task => {
+                      const taskWorklogs = task.worklogs || [];
+                      return taskWorklogs.map(log => ({ 
+                        ...log, 
+                        taskId: task.id, 
+                        taskTitle: task.title,
+                        durationMs: log.durationMs || 0,
+                        user: log.user || "Unknown"
+                      }));
+                    });
+
+                    if (allWorklogs.length === 0) {
+                      return <p className="text-sm text-muted-foreground">No time tracked yet</p>;
+                    }
+
+                    // Calculate total project time
+                    const totalTimeMs = allWorklogs.reduce((sum, log) => sum + (log.durationMs || 0), 0);
+                    const totalTimeSeconds = Math.floor(totalTimeMs / 1000);
+                    const totalHours = Math.floor(totalTimeSeconds / 3600);
+                    const totalMinutes = Math.floor((totalTimeSeconds % 3600) / 60);
+
+                    // Group by user (for user totals)
+                    const byUser = allWorklogs.reduce((acc: Record<string, number>, log) => {
+                      const user = log.user || "Unknown";
+                      acc[user] = (acc[user] || 0) + (log.durationMs || 0);
+                      return acc;
+                    }, {});
+
+                    // Group by task (for task breakdown)
+                    const byTask = allWorklogs.reduce((acc: Record<string, { title: string; logs: typeof allWorklogs }>, log) => {
+                      if (!acc[log.taskId]) {
+                        acc[log.taskId] = { title: log.taskTitle || "Unknown Task", logs: [] };
+                      }
+                      acc[log.taskId].logs.push(log);
+                      return acc;
+                    }, {});
+
+                    return (
+                      <div className="space-y-3">
+                        {/* Total Project Time */}
+                        <div className="flex items-center justify-between pb-2 border-b">
+                          <span className="text-sm text-muted-foreground">Total Project Time</span>
+                          <span className="text-lg font-bold">
+                            {totalHours}h {totalMinutes}m
+                          </span>
+                        </div>
+
+                        {/* By User */}
+                        <div className="space-y-2">
+                          <h4 className="text-xs font-semibold text-muted-foreground uppercase">By User</h4>
+                          {Object.entries(byUser)
+                            .sort(([, a], [, b]) => b - a) // Sort by time descending
+                            .map(([user, timeMs]) => {
+                              const userTimeSeconds = Math.floor(timeMs / 1000);
+                              const userHours = Math.floor(userTimeSeconds / 3600);
+                              const userMinutes = Math.floor((userTimeSeconds % 3600) / 60);
+                              return (
+                                <div key={user} className="flex items-center justify-between text-xs">
+                                  <span className="font-medium truncate">{user}</span>
+                                  <span className="text-muted-foreground">
+                                    {userHours}h {userMinutes}m
+                                  </span>
+                                </div>
+                              );
+                            })}
+                        </div>
+
+                        {/* By Task */}
+                        <div className="space-y-2 max-h-48 overflow-y-auto border-t pt-2">
+                          <h4 className="text-xs font-semibold text-muted-foreground uppercase mt-2">By Task</h4>
+                          {Object.entries(byTask)
+                            .map(([taskId, { title, logs }]) => {
+                              const taskTimeMs = logs.reduce((sum, log) => sum + (log.durationMs || 0), 0);
+                              const taskTimeSeconds = Math.floor(taskTimeMs / 1000);
+                              const taskHours = Math.floor(taskTimeSeconds / 3600);
+                              const taskMinutes = Math.floor((taskTimeSeconds % 3600) / 60);
+                              
+                              // Group by user within this task
+                              const taskByUser = logs.reduce((acc: Record<string, number>, log) => {
+                                const user = log.user || "Unknown";
+                                acc[user] = (acc[user] || 0) + (log.durationMs || 0);
+                                return acc;
+                              }, {});
+
+                              return (
+                                <div key={taskId} className="text-sm space-y-1 mb-2">
+                                  <div className="flex items-center justify-between font-medium">
+                                    <span className="truncate">{title}</span>
+                                    <span className="text-muted-foreground">
+                                      {taskHours}h {taskMinutes}m
+                                    </span>
+                                  </div>
+                                  {Object.entries(taskByUser).map(([user, timeMs]) => {
+                                    const userTimeSeconds = Math.floor(timeMs / 1000);
+                                    const userHours = Math.floor(userTimeSeconds / 3600);
+                                    const userMinutes = Math.floor((userTimeSeconds % 3600) / 60);
+                                    return (
+                                      <div key={`${taskId}-${user}`} className="pl-2 text-xs text-muted-foreground flex items-center justify-between">
+                                        <span className="truncate">{user}</span>
+                                        <span>{userHours}h {userMinutes}m</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+            </div>
+          </div>
         </div>
+      )}
+
+      {/* Floating Comments Panel */}
+      {showComments && (
+        <div 
+          className="fixed bottom-4 z-50 w-[90vw] sm:w-96 max-h-[70vh] bg-background border border-border rounded-lg shadow-2xl flex flex-col" 
+          style={{ 
+            right: `${16 + (showActivityLog ? 420 : 0) + (showTimeSpent ? 420 : 0)}px`,
+            maxWidth: 'calc(100vw - 32px)'
+          }}
+        >
+          <div className="flex items-center justify-between p-3 border-b border-border bg-muted/30">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" />
+              Comments
+            </h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowComments(false)}
+              className="h-6 w-6 p-0"
+            >
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="overflow-y-auto flex-1 p-4">
+            <Comments
+              projectId={project.id}
+              comments={projectComments}
+              onAddComment={(text) => {
+                addComment(project.id, undefined, text);
+              }}
+              onDeleteComment={deleteComment}
+              onTaskClick={(taskId) => {
+                const task = project.tasks.find((t) => t.id === taskId);
+                if (task) {
+                  setViewingTask(task);
+                  setIsTaskDetailModalOpen(true);
+                }
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Floating Action Buttons */}
+      <div className="fixed bottom-4 right-4 z-40 flex flex-col gap-2">
+        {!showActivityLog && (
+          <Button
+            onClick={() => setShowActivityLog(true)}
+            className="rounded-full shadow-lg h-12 w-12 p-0 bg-primary hover:bg-primary/90"
+            size="lg"
+            title="Activity Log"
+          >
+            <Activity className="h-5 w-5" />
+          </Button>
+        )}
+        {!showTimeSpent && (
+          <Button
+            onClick={() => setShowTimeSpent(true)}
+            className="rounded-full shadow-lg h-12 w-12 p-0 bg-primary hover:bg-primary/90"
+            size="lg"
+            title="Time Spent"
+          >
+            <Clock className="h-5 w-5" />
+          </Button>
+        )}
+        {!showComments && (
+          <Button
+            onClick={() => setShowComments(true)}
+            className="rounded-full shadow-lg h-12 w-12 p-0 bg-primary hover:bg-primary/90"
+            size="lg"
+            title="Comments"
+          >
+            <MessageSquare className="h-5 w-5" />
+          </Button>
+        )}
       </div>
 
       <TaskFormModal
         open={isTaskModalOpen}
-        onOpenChange={setIsTaskModalOpen}
+        onOpenChange={(open) => {
+          setIsTaskModalOpen(open);
+          if (!open) {
+            setDefaultTaskStatus(undefined);
+          }
+        }}
         task={editingTask}
+        defaultStatus={defaultTaskStatus}
         onSave={handleSaveTask}
       />
 
