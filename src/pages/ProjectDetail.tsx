@@ -33,8 +33,8 @@ const priorityColors: Record<Priority, string> = {
   Critical: "bg-red-900 text-white",
 };
 
-// Inner component with undo/redo logic
-const ProjectDetailContent = () => {
+// Inner component - contains all UI and logic
+const ProjectDetailInner = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -479,110 +479,7 @@ const ProjectDetailContent = () => {
   const deadlineStatus = getDeadlineStatus(project.deadline);
   const needsFollowUp = hasFollowUpNeeded(project.tasks);
 
-  // Undo/Redo handlers
-  const handleUndo = useCallback(async (action: UndoableAction) => {
-    if (!project) return;
-    
-    const API_URL = import.meta.env.VITE_API_URL || "/api";
-    
-    switch (action.type) {
-      case 'TASK_CREATE':
-        await handleDeleteTask(action.task.id);
-        break;
-
-      case 'TASK_UPDATE':
-        await handleUpdateTask(action.taskId, action.before, true);
-        break;
-
-      case 'TASK_DELETE':
-        // Recreate via API
-        await fetch(`${API_URL}/tasks`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...action.task, projectId: action.projectId }),
-        });
-        queryClient.invalidateQueries({ queryKey: ["projects"] });
-        toast.success("Undone: Task deletion");
-        break;
-
-      case 'STATUS_CREATE':
-        await deleteTaskStatus(action.status.id);
-        queryClient.invalidateQueries({ queryKey: ["workflow"] });
-        toast.success("Undone: Status creation");
-        break;
-
-      case 'STATUS_UPDATE':
-        const statusToUndo = taskStatuses.find(s => s.name === action.after.name) || 
-                             taskStatuses.find(s => s.id === action.statusId);
-        if (statusToUndo) {
-          await updateTaskStatus(statusToUndo.id, action.before);
-          queryClient.invalidateQueries({ queryKey: ["workflow"] });
-          toast.success("Undone: Status update");
-        }
-        break;
-
-      case 'STATUS_DELETE':
-        await addTaskStatus(action.status);
-        queryClient.invalidateQueries({ queryKey: ["workflow"] });
-        toast.success("Undone: Status deletion");
-        break;
-    }
-  }, [project, handleDeleteTask, handleUpdateTask, taskStatuses, deleteTaskStatus, updateTaskStatus, addTaskStatus, queryClient]);
-
-  const handleRedo = useCallback(async (action: UndoableAction) => {
-    if (!project) return;
-    
-    const API_URL = import.meta.env.VITE_API_URL || "/api";
-    
-    switch (action.type) {
-      case 'TASK_CREATE':
-        // Recreate via API
-        await fetch(`${API_URL}/tasks`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...action.task, projectId: action.projectId }),
-        });
-        queryClient.invalidateQueries({ queryKey: ["projects"] });
-        toast.success("Redone: Task creation");
-        break;
-
-      case 'TASK_UPDATE':
-        await handleUpdateTask(action.taskId, action.after, true);
-        break;
-
-      case 'TASK_DELETE':
-        await handleDeleteTask(action.task.id);
-        break;
-
-      case 'STATUS_CREATE':
-        await addTaskStatus(action.status);
-        queryClient.invalidateQueries({ queryKey: ["workflow"] });
-        toast.success("Redone: Status creation");
-        break;
-
-      case 'STATUS_UPDATE':
-        const statusToRedo = taskStatuses.find(s => s.name === action.before.name) ||
-                             taskStatuses.find(s => s.id === action.statusId);
-        if (statusToRedo) {
-          await updateTaskStatus(statusToRedo.id, action.after);
-          queryClient.invalidateQueries({ queryKey: ["workflow"] });
-          toast.success("Redone: Status update");
-        }
-        break;
-
-      case 'STATUS_DELETE':
-        const statusToDelete = taskStatuses.find(s => s.name === action.status.name);
-        if (statusToDelete) {
-          await deleteTaskStatus(statusToDelete.id);
-          queryClient.invalidateQueries({ queryKey: ["workflow"] });
-          toast.success("Redone: Status deletion");
-        }
-        break;
-    }
-  }, [project, handleDeleteTask, handleUpdateTask, taskStatuses, addTaskStatus, updateTaskStatus, deleteTaskStatus, queryClient]);
-
   return (
-    <UndoRedoProvider onUndo={handleUndo} onRedo={handleRedo}>
     <div className="flex flex-col h-full overflow-hidden">
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <div className="flex-1 min-h-0 px-6 pt-4 pb-6 overflow-hidden">
@@ -980,8 +877,135 @@ const ProjectDetailContent = () => {
         </DialogContent>
       </Dialog>
     </div>
+  );
+};
+
+// Wrapper component with UndoRedoProvider and undo/redo logic
+const ProjectDetail = () => {
+  const { id } = useParams<{ id: string }>();
+  const { getProjectById } = useApp();
+  const project = getProjectById(id!);
+  const { taskStatuses, addTaskStatus, deleteTaskStatus, updateTaskStatus } = useWorkflow();
+  const queryClient = useQueryClient();
+
+  // Undo handler
+  const handleUndo = useCallback(async (action: UndoableAction) => {
+    const API_URL = import.meta.env.VITE_API_URL || "/api";
+    
+    switch (action.type) {
+      case 'TASK_CREATE':
+        await fetch(`${API_URL}/tasks/${action.task.id}`, { method: "DELETE" });
+        queryClient.invalidateQueries({ queryKey: ["projects"] });
+        toast.success("Undone: Task creation");
+        break;
+
+      case 'TASK_UPDATE':
+        await fetch(`${API_URL}/tasks/${action.taskId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(action.before),
+        });
+        queryClient.invalidateQueries({ queryKey: ["projects"] });
+        toast.success("Undone: Task update");
+        break;
+
+      case 'TASK_DELETE':
+        await fetch(`${API_URL}/tasks`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...action.task, projectId: action.projectId }),
+        });
+        queryClient.invalidateQueries({ queryKey: ["projects"] });
+        toast.success("Undone: Task deletion");
+        break;
+
+      case 'STATUS_CREATE':
+        await deleteTaskStatus(action.status.id);
+        queryClient.invalidateQueries({ queryKey: ["workflow"] });
+        toast.success("Undone: Status creation");
+        break;
+
+      case 'STATUS_UPDATE':
+        const statusToUndo = taskStatuses.find(s => s.name === action.after.name) || 
+                             taskStatuses.find(s => s.id === action.statusId);
+        if (statusToUndo) {
+          await updateTaskStatus(statusToUndo.id, action.before);
+          queryClient.invalidateQueries({ queryKey: ["workflow"] });
+          toast.success("Undone: Status update");
+        }
+        break;
+
+      case 'STATUS_DELETE':
+        await addTaskStatus(action.status);
+        queryClient.invalidateQueries({ queryKey: ["workflow"] });
+        toast.success("Undone: Status deletion");
+        break;
+    }
+  }, [queryClient, taskStatuses, deleteTaskStatus, updateTaskStatus, addTaskStatus]);
+
+  // Redo handler
+  const handleRedo = useCallback(async (action: UndoableAction) => {
+    const API_URL = import.meta.env.VITE_API_URL || "/api";
+    
+    switch (action.type) {
+      case 'TASK_CREATE':
+        await fetch(`${API_URL}/tasks`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...action.task, projectId: action.projectId }),
+        });
+        queryClient.invalidateQueries({ queryKey: ["projects"] });
+        toast.success("Redone: Task creation");
+        break;
+
+      case 'TASK_UPDATE':
+        await fetch(`${API_URL}/tasks/${action.taskId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(action.after),
+        });
+        queryClient.invalidateQueries({ queryKey: ["projects"] });
+        toast.success("Redone: Task update");
+        break;
+
+      case 'TASK_DELETE':
+        await fetch(`${API_URL}/tasks/${action.task.id}`, { method: "DELETE" });
+        queryClient.invalidateQueries({ queryKey: ["projects"] });
+        toast.success("Redone: Task deletion");
+        break;
+
+      case 'STATUS_CREATE':
+        await addTaskStatus(action.status);
+        queryClient.invalidateQueries({ queryKey: ["workflow"] });
+        toast.success("Redone: Status creation");
+        break;
+
+      case 'STATUS_UPDATE':
+        const statusToRedo = taskStatuses.find(s => s.name === action.before.name) ||
+                             taskStatuses.find(s => s.id === action.statusId);
+        if (statusToRedo) {
+          await updateTaskStatus(statusToRedo.id, action.after);
+          queryClient.invalidateQueries({ queryKey: ["workflow"] });
+          toast.success("Redone: Status update");
+        }
+        break;
+
+      case 'STATUS_DELETE':
+        const statusToDelete = taskStatuses.find(s => s.name === action.status.name);
+        if (statusToDelete) {
+          await deleteTaskStatus(statusToDelete.id);
+          queryClient.invalidateQueries({ queryKey: ["workflow"] });
+          toast.success("Redone: Status deletion");
+        }
+        break;
+    }
+  }, [queryClient, taskStatuses, addTaskStatus, deleteTaskStatus, updateTaskStatus]);
+
+  return (
+    <UndoRedoProvider onUndo={handleUndo} onRedo={handleRedo}>
+      <ProjectDetailInner />
     </UndoRedoProvider>
   );
 };
 
-export default ProjectDetailContent;
+export default ProjectDetail;

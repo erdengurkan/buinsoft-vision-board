@@ -27,8 +27,8 @@ const MAX_HISTORY_SIZE = 50;
 
 interface UndoRedoProviderProps {
   children: ReactNode;
-  onUndo: (action: UndoableAction) => Promise<void>;
-  onRedo: (action: UndoableAction) => Promise<void>;
+  onUndo?: (action: UndoableAction) => Promise<void>;
+  onRedo?: (action: UndoableAction) => Promise<void>;
 }
 
 export const UndoRedoProvider = ({ children, onUndo, onRedo }: UndoRedoProviderProps) => {
@@ -55,13 +55,15 @@ export const UndoRedoProvider = ({ children, onUndo, onRedo }: UndoRedoProviderP
     setUndoStack((prev) => prev.slice(0, -1));
     setRedoStack((prev) => [...prev, action]);
 
-    try {
-      await onUndo(action);
-    } catch (error) {
-      console.error('Undo failed:', error);
-      // Revert the stack changes on error
-      setUndoStack((prev) => [...prev, action]);
-      setRedoStack((prev) => prev.slice(0, -1));
+    if (onUndo) {
+      try {
+        await onUndo(action);
+      } catch (error) {
+        console.error('Undo failed:', error);
+        // Revert the stack changes on error
+        setUndoStack((prev) => [...prev, action]);
+        setRedoStack((prev) => prev.slice(0, -1));
+      }
     }
   }, [undoStack, onUndo]);
 
@@ -72,13 +74,15 @@ export const UndoRedoProvider = ({ children, onUndo, onRedo }: UndoRedoProviderP
     setRedoStack((prev) => prev.slice(0, -1));
     setUndoStack((prev) => [...prev, action]);
 
-    try {
-      await onRedo(action);
-    } catch (error) {
-      console.error('Redo failed:', error);
-      // Revert the stack changes on error
-      setRedoStack((prev) => [...prev, action]);
-      setUndoStack((prev) => prev.slice(0, -1));
+    if (onRedo) {
+      try {
+        await onRedo(action);
+      } catch (error) {
+        console.error('Redo failed:', error);
+        // Revert the stack changes on error
+        setRedoStack((prev) => [...prev, action]);
+        setUndoStack((prev) => prev.slice(0, -1));
+      }
     }
   }, [redoStack, onRedo]);
 
