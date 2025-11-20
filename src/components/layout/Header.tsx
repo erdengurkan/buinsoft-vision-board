@@ -1,4 +1,4 @@
-import { Search, User, Settings, LogOut, ChevronDown, ArrowLeft, Users, Calendar as CalendarIcon } from "lucide-react";
+import { Search, User, Settings, LogOut, ChevronDown, ArrowLeft, Users, Calendar as CalendarIcon, Clock, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -112,6 +112,55 @@ export const Header = () => {
               )}
             </TooltipContent>
           </Tooltip>
+
+          {/* Deadline - If exists */}
+          {project.deadline && (
+            <>
+              <span className="text-muted-foreground">•</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "flex items-center gap-1 text-xs font-medium shrink-0 group-hover:shadow-md transition-all",
+                      deadlineStatus === "overdue" 
+                        ? "bg-red-900/30 border-red-500/50 text-red-200 hover:bg-red-900/40" 
+                        : deadlineStatus === "soon" 
+                          ? "bg-orange-900/30 border-orange-500/50 text-orange-200 hover:bg-orange-900/40 animate-pulse"
+                          : "bg-green-900/30 border-green-500/50 text-green-200 hover:bg-green-900/40"
+                    )}
+                  >
+                    {deadlineStatus === "overdue" ? (
+                      <AlertTriangle className="h-3 w-3" />
+                    ) : deadlineStatus === "soon" ? (
+                      <Clock className="h-3 w-3" />
+                    ) : (
+                      <CalendarIcon className="h-3 w-3" />
+                    )}
+                    <span className="font-semibold">
+                      {deadlineStatus === "overdue" ? "Overdue" : deadlineStatus === "soon" ? "Due Soon" : "On Track"}
+                    </span>
+                    <span className="opacity-75">•</span>
+                    <span>{format(project.deadline, "MMM d")}</span>
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium">
+                      {deadlineStatus === "overdue" 
+                        ? "⚠️ Deadline Passed" 
+                        : deadlineStatus === "soon" 
+                          ? "⏰ Deadline Approaching" 
+                          : "✅ Deadline OK"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {format(project.deadline, "EEEE, MMMM d, yyyy")}
+                    </p>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </>
+          )}
 
           <span className="text-muted-foreground">•</span>
 
