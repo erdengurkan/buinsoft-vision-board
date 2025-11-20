@@ -2,7 +2,6 @@ import React, { createContext, useContext, ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Project } from "@/types";
 import { toast } from "sonner";
-import { useGlobalSSE } from "@/hooks/useGlobalSSE";
 
 interface AppContextType {
   projects: Project[];
@@ -20,8 +19,7 @@ const API_URL = import.meta.env.VITE_API_URL || "/api";
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const queryClient = useQueryClient();
 
-  // Enable real-time updates via SSE
-  useGlobalSSE();
+  // Note: SSE is handled globally in AppWithSSE component, not here
 
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ["projects"],
@@ -49,6 +47,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         })),
       }));
     },
+    staleTime: 30000, // Consider data fresh for 30 seconds
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    refetchOnMount: true, // Only refetch on mount
   });
 
   const addProjectMutation = useMutation({

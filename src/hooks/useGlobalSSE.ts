@@ -6,84 +6,115 @@ const API_URL = import.meta.env.VITE_API_URL || '/api';
 // Global SSE connection for all pages - listens to all project updates
 export const useGlobalSSE = () => {
   const queryClient = useQueryClient();
+  const queryClientRef = useRef(queryClient);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Keep queryClient ref updated
+  useEffect(() => {
+    queryClientRef.current = queryClient;
+  }, [queryClient]);
 
   useEffect(() => {
+    // Don't create multiple connections
+    if (eventSourceRef.current) {
+      return;
+    }
+
     // Create global SSE connection (no projectId filter)
     const url = `${API_URL}/events`;
     console.log('🌐 Global SSE: Connecting to:', url);
 
-    try {
-      const eventSource = new EventSource(url);
-      eventSourceRef.current = eventSource;
+    const connectSSE = () => {
+      try {
+        const eventSource = new EventSource(url);
+        eventSourceRef.current = eventSource;
 
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          console.log('🔔 Global SSE Message received:', data);
-
-          if (data.type === 'project_updated') {
-            console.log('✅ Project update received, refetching...', data.projectId);
-            // Invalidate and refetch projects when update is received
-            // Use a delay to avoid race conditions with optimistic updates
-            setTimeout(() => {
-              queryClient.invalidateQueries({ queryKey: ['projects'] });
-              queryClient.refetchQueries({ queryKey: ['projects'] }).then(() => {
-                console.log('✅ Projects refetched after SSE update');
-              });
-            }, 300);
-            // Also refetch comments and activity logs for this project
-            if (data.projectId) {
-              queryClient.invalidateQueries({ queryKey: ['comments', 'project', data.projectId] });
-              queryClient.invalidateQueries({ queryKey: ['activity-logs', data.projectId] });
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            
+            // Only log important messages to reduce console noise
+            if (data.type !== 'connected') {
+              console.log('🔔 Global SSE Message received:', data.type);
             }
-            // Also refetch active timers
-            queryClient.invalidateQueries({ queryKey: ['activeTimers'] });
-            queryClient.refetchQueries({ queryKey: ['activeTimers'] });
-          } else if (data.type === 'todo_updated' || data.type === 'todo_created' || data.type === 'todo_deleted') {
-            console.log('✅ Todo event received:', data.type);
-            // Refetch todos when any todo event is received
-            queryClient.invalidateQueries({ queryKey: ['todos'] });
-            queryClient.refetchQueries({ queryKey: ['todos'] });
-          } else if (data.type === 'timer_started' || data.type === 'timer_stopped') {
-            console.log('✅ Timer event received:', data.type);
-            // Refetch active timers when timer starts/stops
-            queryClient.invalidateQueries({ queryKey: ['activeTimers'] });
-            queryClient.refetchQueries({ queryKey: ['activeTimers'] });
-          } else if (data.type === 'connected') {
-            console.log('✅ Global SSE connected:', data.clientId);
+
+            if (data.type === 'project_updated') {
+              // Invalidate queries (will refetch when needed)
+              // Use a delay to avoid race conditions with optimistic updates
+              setTimeout(() => {
+                queryClientRef.current.invalidateQueries({ queryKey: ['projects'] });
+                // Also invalidate comments and activity logs for this project
+                if (data.projectId) {
+                  queryClientRef.current.invalidateQueries({ queryKey: ['comments', 'project', data.projectId] });
+                  queryClientRef.current.invalidateQueries({ queryKey: ['activity-logs', data.projectId] });
+                }
+                // Also invalidate active timers
+                queryClientRef.current.invalidateQueries({ queryKey: ['activeTimers'] });
+              }, 300);
+            } else if (data.type === 'todo_updated' || data.type === 'todo_created' || data.type === 'todo_deleted') {
+              // Invalidate todos when any todo event is received (will refetch when needed)
+              queryClientRef.current.invalidateQueries({ queryKey: ['todos'] });
+            } else if (data.type === 'timer_started' || data.type === 'timer_stopped') {
+              // Invalidate active timers when timer starts/stops (will refetch when needed)
+              queryClientRef.current.invalidateQueries({ queryKey: ['activeTimers'] });
+            }
+          } catch (error) {
+            console.error('❌ Error parsing SSE message:', error);
           }
-        } catch (error) {
-          console.error('❌ Error parsing SSE message:', error);
-        }
-      };
+        };
 
-      eventSource.onopen = () => {
-        console.log('✅ Global SSE connection opened');
-      };
-
-      eventSource.onerror = (error) => {
-        console.error('❌ Global SSE error:', error, 'ReadyState:', eventSource.readyState);
-        // Reconnect after 3 seconds
-        setTimeout(() => {
-          if (eventSourceRef.current?.readyState === EventSource.CLOSED) {
-            console.log('🔄 Reconnecting Global SSE...');
-            eventSourceRef.current = new EventSource(url);
+        eventSource.onopen = () => {
+          console.log('✅ Global SSE connection opened');
+          // Clear any pending reconnect
+          if (reconnectTimeoutRef.current) {
+            clearTimeout(reconnectTimeoutRef.current);
+            reconnectTimeoutRef.current = null;
           }
-        }, 3000);
-      };
+        };
 
-    } catch (error) {
-      console.error('❌ Failed to create Global EventSource:', error);
-    }
+        eventSource.onerror = (error) => {
+          // Only reconnect if connection is actually closed
+          if (eventSource.readyState === EventSource.CLOSED) {
+            console.error('❌ Global SSE connection closed, will reconnect...');
+            eventSourceRef.current = null;
+            
+            // Clear any existing reconnect timeout
+            if (reconnectTimeoutRef.current) {
+              clearTimeout(reconnectTimeoutRef.current);
+            }
+            
+            // Reconnect after 5 seconds (less aggressive)
+            reconnectTimeoutRef.current = setTimeout(() => {
+              if (!eventSourceRef.current) {
+                console.log('🔄 Reconnecting Global SSE...');
+                connectSSE();
+              }
+            }, 5000);
+          }
+        };
+
+      } catch (error) {
+        console.error('❌ Failed to create Global EventSource:', error);
+      }
+    };
+
+    connectSSE();
 
     return () => {
+      // Clear reconnect timeout
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+      
+      // Close connection
       if (eventSourceRef.current) {
         console.log('🔌 Closing Global SSE connection');
         eventSourceRef.current.close();
         eventSourceRef.current = null;
       }
     };
-  }, [queryClient]);
+  }, []); // Empty dependency array - only run once
 };
 

@@ -38,6 +38,14 @@ router.delete('/todos/:id', todoController.deleteTodo);
 
 // Workflow
 router.get('/workflow', workflowController.getWorkflow);
+router.post('/workflow/status', workflowController.createStatus);
+router.patch('/workflow/status/:id', workflowController.updateStatus);
+router.delete('/workflow/status/:id', workflowController.deleteStatus);
+
+// Debug: Test workflow status endpoint
+router.get('/workflow/test', (req: any, res: any) => {
+  res.json({ message: 'Workflow routes are loaded', timestamp: new Date().toISOString() });
+});
 
 // Timers
 router.post('/timers/start', timerController.startTimer);

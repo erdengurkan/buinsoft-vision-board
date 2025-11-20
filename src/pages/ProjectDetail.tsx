@@ -15,9 +15,13 @@ import { useActivityLog } from "@/hooks/useActivityLog";
 import { useComments } from "@/hooks/useComments";
 import { useWorklog } from "@/hooks/useWorklog";
 import { toast } from "sonner";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { format } from "date-fns";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useWorkflow } from "@/contexts/WorkflowContext";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 const API_URL = import.meta.env.VITE_API_URL || "/api";
 
@@ -38,6 +42,7 @@ const ProjectDetail = () => {
   const { addComment, deleteComment, getProjectComments } = useComments(project?.id);
   const { getProjectTotalTime } = useWorklog();
   const queryClient = useQueryClient();
+  const { taskStatuses, addTaskStatus, deleteTaskStatus } = useWorkflow();
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isTaskDetailModalOpen, setIsTaskDetailModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
@@ -46,6 +51,9 @@ const ProjectDetail = () => {
   const [showActivityLog, setShowActivityLog] = useState(false);
   const [showTimeSpent, setShowTimeSpent] = useState(false);
   const [showComments, setShowComments] = useState(false);
+  const [showAddStatusDialog, setShowAddStatusDialog] = useState(false);
+  const [newStatusName, setNewStatusName] = useState("");
+  const [newStatusColor, setNewStatusColor] = useState("bg-blue-500");
 
   // Task mutations - MUST be before conditional returns (Rules of Hooks)
   const updateTaskMutation = useMutation({
@@ -285,6 +293,24 @@ const ProjectDetail = () => {
     setIsTaskModalOpen(true);
   };
 
+  const handleAddStatus = async () => {
+    if (!newStatusName.trim()) return;
+    
+    try {
+      await addTaskStatus({
+        name: newStatusName.trim(),
+        color: newStatusColor,
+      });
+      toast.success("Status added");
+      setShowAddStatusDialog(false);
+      setNewStatusName("");
+      setNewStatusColor("bg-blue-500");
+    } catch (error: any) {
+      console.error("Error adding status:", error);
+      toast.error(error?.message || "Failed to add status");
+    }
+  };
+
   const handleQuickCreateTask = async (status: string, title: string, description?: string) => {
     if (!project) return;
     
@@ -348,6 +374,14 @@ const ProjectDetail = () => {
     }
   };
 
+  if (!project) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-muted-foreground">Project not found</p>
+      </div>
+    );
+  }
+
   const deadlineStatus = getDeadlineStatus(project.deadline);
   const needsFollowUp = hasFollowUpNeeded(project.tasks);
 
@@ -392,6 +426,15 @@ const ProjectDetail = () => {
             }}
             onCreateTask={handleCreateTask}
             onQuickCreateTask={handleQuickCreateTask}
+            onAddStatus={() => setShowAddStatusDialog(true)}
+            onDeleteStatus={async (statusId: string) => {
+              try {
+                await deleteTaskStatus(statusId);
+                toast.success("Status deleted");
+              } catch (error: any) {
+                toast.error(error.message || "Failed to delete status");
+              }
+            }}
           />
         ) : (
           <div className="text-center py-12 bg-muted/30 rounded-lg">
@@ -670,6 +713,74 @@ const ProjectDetail = () => {
         task={viewingTask}
         projectTitle={project.title}
       />
+
+      {/* Add Status Dialog */}
+      <Dialog open={showAddStatusDialog} onOpenChange={setShowAddStatusDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Status</DialogTitle>
+            <DialogDescription>
+              Create a new task status column for this project.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label>Status Name</Label>
+              <Input
+                value={newStatusName}
+                onChange={(e) => setNewStatusName(e.target.value)}
+                placeholder="e.g., Review, Blocked"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newStatusName.trim()) {
+                    handleAddStatus();
+                  }
+                }}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Color</Label>
+              <div className="flex gap-2 flex-wrap">
+                {[
+                  "bg-blue-500",
+                  "bg-green-500",
+                  "bg-yellow-500",
+                  "bg-orange-500",
+                  "bg-red-500",
+                  "bg-purple-500",
+                  "bg-pink-500",
+                  "bg-indigo-500",
+                ].map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setNewStatusColor(color)}
+                    className={cn(
+                      "w-8 h-8 rounded-full border-2 transition-all",
+                      color,
+                      newStatusColor === color ? "border-foreground scale-110" : "border-transparent"
+                    )}
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <Button variant="outline" onClick={() => {
+                setShowAddStatusDialog(false);
+                setNewStatusName("");
+                setNewStatusColor("bg-blue-500");
+              }}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleAddStatus}
+                disabled={!newStatusName.trim()}
+              >
+                Add Status
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

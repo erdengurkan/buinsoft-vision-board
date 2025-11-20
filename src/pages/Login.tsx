@@ -10,6 +10,7 @@ const Login = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,6 +20,7 @@ const Login = () => {
       return;
     }
 
+    setIsLoading(true);
     try {
       const API_URL = import.meta.env.VITE_API_URL || "/api";
       const res = await fetch(`${API_URL}/login`, {
@@ -36,7 +38,10 @@ const Login = () => {
       toast.success(`Welcome back, ${data.user.name || "User"}!`);
       navigate("/dashboard");
     } catch (error: any) {
+      console.error("Login error:", error);
       toast.error(error.message || "Invalid credentials");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -75,8 +80,8 @@ const Login = () => {
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
-            <Button type="submit" className="w-full">
-              Sign In
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
           <p className="mt-4 text-center text-xs text-muted-foreground">

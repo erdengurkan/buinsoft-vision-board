@@ -17,6 +17,8 @@ import { Task, TaskStatus } from "@/types";
 import { TaskColumn } from "./TaskColumn";
 import { TaskCard } from "./TaskCard";
 import { useWorkflow } from "@/contexts/WorkflowContext";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 
 interface TaskKanbanProps {
   projectId: string;
@@ -27,6 +29,8 @@ interface TaskKanbanProps {
   onViewTaskDetails?: (task: Task) => void;
   onCreateTask?: (status: string) => void;
   onQuickCreateTask?: (status: string, title: string, description?: string) => void;
+  onAddStatus?: () => void;
+  onDeleteStatus?: (statusId: string) => void;
 }
 
 export const TaskKanban = ({
@@ -38,6 +42,8 @@ export const TaskKanban = ({
   onViewTaskDetails,
   onCreateTask,
   onQuickCreateTask,
+  onAddStatus,
+  onDeleteStatus,
 }: TaskKanbanProps) => {
   const { taskStatuses } = useWorkflow();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -325,19 +331,53 @@ export const TaskKanban = ({
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
       >
-        {taskStatuses.map((status) => (
-          <TaskColumn
-            key={status.id}
-            status={status.name}
-            statusColor={status.color}
-            projectId={projectId}
-            tasks={getTasksByStatus(status.name)}
-            onDeleteTask={onDeleteTask}
-            onViewTaskDetails={onViewTaskDetails}
-            onCreateTask={onCreateTask}
-            onQuickCreateTask={onQuickCreateTask}
-          />
-        ))}
+        {/* Add Status Button - Only show before first status */}
+        {onAddStatus && (
+          <div className="flex items-start pt-12 shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onAddStatus}
+              className="h-8 w-8 p-0 rounded-full border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/50"
+              title="Add new status"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+        
+        {taskStatuses.map((status, index) => {
+          const statusTasks = getTasksByStatus(status.name);
+          return (
+            <div key={status.id} className="flex items-start gap-2 shrink-0">
+              <TaskColumn
+                status={status.name}
+                statusColor={status.color}
+                projectId={projectId}
+                tasks={statusTasks}
+                onDeleteTask={onDeleteTask}
+                onViewTaskDetails={onViewTaskDetails}
+                onCreateTask={onCreateTask}
+                onQuickCreateTask={onQuickCreateTask}
+                onDeleteStatus={statusTasks.length === 0 && onDeleteStatus ? () => onDeleteStatus(status.id) : undefined}
+              />
+              {/* Add Status Button after each column */}
+              {onAddStatus && index === taskStatuses.length - 1 && (
+                <div className="flex items-start pt-12">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onAddStatus}
+                    className="h-8 w-8 p-0 rounded-full border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/50"
+                    title="Add new status"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
       <DragOverlay>
         {activeTask ? <TaskCard task={activeTask} projectId={projectId} onDelete={() => { }} /> : null}

@@ -27,7 +27,8 @@ export const useActiveTimers = (projectId?: string) => {
             if (!res.ok) throw new Error('Failed to fetch active timers');
             return res.json();
         },
-        refetchInterval: 5000, // Refetch every 5 seconds as backup (SSE is primary)
-        staleTime: 0, // Always consider stale to ensure fresh data
+        refetchInterval: 10000, // Refetch every 10 seconds as backup (SSE is primary)
+        staleTime: 5000, // Consider data fresh for 5 seconds
+        refetchOnWindowFocus: false, // Don't refetch on window focus
     });
 };

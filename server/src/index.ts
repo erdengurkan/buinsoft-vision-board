@@ -20,12 +20,20 @@ app.get('/api/health', (req: Request, res: Response) => {
 
 import routes from './routes';
 import sseRoutes from './routes/sseRoutes';
+import * as workflowController from './controllers/workflowController';
 
 // SSE routes (must be before static files)
 app.use('/api', sseRoutes);
 
 // API routes
 app.use('/api', routes);
+
+// Debug: Log workflow routes specifically
+console.log('📋 Workflow routes check:');
+console.log('  GET /api/workflow -', typeof workflowController.getWorkflow);
+console.log('  POST /api/workflow/status -', typeof workflowController.createStatus);
+console.log('  PATCH /api/workflow/status/:id -', typeof workflowController.updateStatus);
+console.log('  DELETE /api/workflow/status/:id -', typeof workflowController.deleteStatus);
 
 // Serve static files from the public directory (frontend build)
 app.use(express.static(path.join(__dirname, '../public')));

@@ -10,7 +10,7 @@ import { getColorFromTailwind } from "@/utils/colorUtils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, X, Check } from "lucide-react";
+import { Plus, X, Check, Trash2 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
 interface TaskColumnProps {
@@ -22,6 +22,7 @@ interface TaskColumnProps {
   onViewTaskDetails?: (task: Task) => void;
   onCreateTask?: (status: string) => void;
   onQuickCreateTask?: (status: string, title: string, description?: string) => void;
+  onDeleteStatus?: () => void;
 }
 
 export const TaskColumn = ({
@@ -33,6 +34,7 @@ export const TaskColumn = ({
   onViewTaskDetails,
   onCreateTask,
   onQuickCreateTask,
+  onDeleteStatus,
 }: TaskColumnProps) => {
   const { setNodeRef } = useDroppable({ id: status });
   const [showAddButton, setShowAddButton] = useState(false);
@@ -55,7 +57,22 @@ export const TaskColumn = ({
       >
         <div className="flex items-center justify-between">
           <h3 className="text-xs sm:text-sm font-semibold text-foreground truncate">{status}</h3>
-          <span className="text-xs text-muted-foreground ml-2">{tasks.length}</span>
+          {tasks.length === 0 && onDeleteStatus ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteStatus();
+              }}
+              className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+              title="Delete status"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          ) : (
+            <span className="text-xs text-muted-foreground ml-2">{tasks.length}</span>
+          )}
         </div>
       </div>
       <div
