@@ -166,7 +166,7 @@ export const Header = () => {
             variant="outline" 
             className={cn("text-xs shrink-0 group-hover:shadow-md transition-shadow",
               project.status === "Done" && "bg-green-900/20 border-green-900/50 text-green-100",
-              project.status === "Active" && "bg-blue-900/20 border-blue-900/50 text-blue-100",
+              project.status === "Active" && "bg-green-600 border-green-600 text-white",
               project.status === "Potential" && "bg-gray-900/20 border-gray-900/50 text-gray-100",
               project.status === "On Hold" && "bg-orange-900/20 border-orange-900/50 text-orange-100"
             )}
