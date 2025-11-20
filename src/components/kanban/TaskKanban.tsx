@@ -22,6 +22,8 @@ interface TaskKanbanProps {
   onReorderTasks?: (taskOrders: Array<{ id: string; order: number }>) => void;
   onDeleteTask: (taskId: string) => void;
   onViewTaskDetails?: (task: Task) => void;
+  onCreateTask?: (status: string) => void;
+  onQuickCreateTask?: (status: string, title: string, description?: string) => void;
 }
 
 export const TaskKanban = ({
@@ -32,6 +34,7 @@ export const TaskKanban = ({
   onDeleteTask,
   onViewTaskDetails,
   onCreateTask,
+  onQuickCreateTask,
 }: TaskKanbanProps) => {
   const { taskStatuses } = useWorkflow();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -310,6 +313,7 @@ export const TaskKanban = ({
             onDeleteTask={onDeleteTask}
             onViewTaskDetails={onViewTaskDetails}
             onCreateTask={onCreateTask}
+            onQuickCreateTask={onQuickCreateTask}
           />
         ))}
       </div>

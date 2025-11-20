@@ -8,8 +8,10 @@ import { Task, TaskStatus } from "@/types";
 import { cn } from "@/lib/utils";
 import { getColorFromTailwind } from "@/utils/colorUtils";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
-import { useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Plus, X, Check } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
 
 interface TaskColumnProps {
   status: string;
@@ -19,6 +21,7 @@ interface TaskColumnProps {
   onDeleteTask: (id: string) => void;
   onViewTaskDetails?: (task: Task) => void;
   onCreateTask?: (status: string) => void;
+  onQuickCreateTask?: (status: string, title: string, description?: string) => void;
 }
 
 export const TaskColumn = ({
@@ -29,9 +32,20 @@ export const TaskColumn = ({
   onDeleteTask,
   onViewTaskDetails,
   onCreateTask,
+  onQuickCreateTask,
 }: TaskColumnProps) => {
   const { setNodeRef } = useDroppable({ id: status });
   const [showAddButton, setShowAddButton] = useState(false);
+  const [isCreatingTask, setIsCreatingTask] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newTaskDescription, setNewTaskDescription] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isCreatingTask && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isCreatingTask]);
 
   return (
     <div className="flex flex-col min-w-[260px] sm:min-w-[280px] flex-1 shrink-0 h-full">
@@ -66,24 +80,105 @@ export const TaskColumn = ({
                 />
               ))}
             </SortableContext>
-          ) : (
-            <div className="h-full min-h-[100px]" />
+          ) : null}
+          
+          {/* Add Here Button or Inline Task Creation */}
+          {(showAddButton || tasks.length === 0) && !isCreatingTask && onCreateTask && (
+            <div className="shrink-0">
+              <Button
+                variant="ghost"
+                className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted/50 border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 transition-all"
+                onClick={() => {
+                  setIsCreatingTask(true);
+                  setNewTaskTitle("");
+                  setNewTaskDescription("");
+                }}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Here
+              </Button>
+            </div>
+          )}
+          
+          {/* Inline Task Creation Form */}
+          {isCreatingTask && (
+            <div className="shrink-0 rounded-lg border bg-card p-3 shadow-sm">
+              <Input
+                ref={inputRef}
+                placeholder="Enter task title..."
+                value={newTaskTitle}
+                onChange={(e) => setNewTaskTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && newTaskTitle.trim()) {
+                    // Ctrl/Cmd + Enter to submit
+                    if (onQuickCreateTask) {
+                      onQuickCreateTask(status, newTaskTitle.trim(), newTaskDescription.trim());
+                    }
+                    setIsCreatingTask(false);
+                    setNewTaskTitle("");
+                    setNewTaskDescription("");
+                  } else if (e.key === "Escape") {
+                    setIsCreatingTask(false);
+                    setNewTaskTitle("");
+                    setNewTaskDescription("");
+                  }
+                }}
+                className="mb-2"
+              />
+              <Textarea
+                placeholder="Enter description (optional)..."
+                value={newTaskDescription}
+                onChange={(e) => setNewTaskDescription(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && newTaskTitle.trim()) {
+                    // Ctrl/Cmd + Enter to submit
+                    e.preventDefault();
+                    if (onQuickCreateTask) {
+                      onQuickCreateTask(status, newTaskTitle.trim(), newTaskDescription.trim());
+                    }
+                    setIsCreatingTask(false);
+                    setNewTaskTitle("");
+                    setNewTaskDescription("");
+                  } else if (e.key === "Escape") {
+                    setIsCreatingTask(false);
+                    setNewTaskTitle("");
+                    setNewTaskDescription("");
+                  }
+                }}
+                className="mb-2 min-h-[60px] resize-none"
+                rows={2}
+              />
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    if (newTaskTitle.trim() && onQuickCreateTask) {
+                      onQuickCreateTask(status, newTaskTitle.trim(), newTaskDescription.trim());
+                    }
+                    setIsCreatingTask(false);
+                    setNewTaskTitle("");
+                    setNewTaskDescription("");
+                  }}
+                  disabled={!newTaskTitle.trim()}
+                >
+                  <Check className="h-4 w-4 mr-1" />
+                  Add
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setIsCreatingTask(false);
+                    setNewTaskTitle("");
+                    setNewTaskDescription("");
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           )}
         </div>
-        
-        {/* Add Here Button */}
-        {(showAddButton || tasks.length === 0) && onCreateTask && (
-          <div className="pt-2 shrink-0">
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted/50 border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 transition-all"
-              onClick={() => onCreateTask(status)}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Here
-            </Button>
-          </div>
-        )}
       </div>
     </div>
   );

@@ -285,6 +285,35 @@ const ProjectDetail = () => {
     setIsTaskModalOpen(true);
   };
 
+  const handleQuickCreateTask = async (status: string, title: string, description?: string) => {
+    if (!project) return;
+    
+    try {
+      const newTask = await createTaskMutation.mutateAsync({
+        projectId: project.id,
+        title: title,
+        description: description || "",
+        status: status,
+        assignee: "",
+        priority: "Medium",
+        deadline: undefined,
+        followUp: false,
+      });
+
+      // Log activity
+      logActivity(
+        project.id,
+        "task_created",
+        `Task "${newTask.title}" created`,
+        { taskId: newTask.id }
+      );
+
+      toast.success("Task created");
+    } catch (error) {
+      toast.error("Failed to create task");
+    }
+  };
+
   const handleSaveTask = async (taskData: Partial<Task>) => {
     if (!project) return;
 
@@ -432,6 +461,7 @@ const ProjectDetail = () => {
               setIsTaskDetailModalOpen(true);
             }}
             onCreateTask={handleCreateTask}
+            onQuickCreateTask={handleQuickCreateTask}
           />
         ) : (
           <div className="text-center py-12 bg-muted/30 rounded-lg">
