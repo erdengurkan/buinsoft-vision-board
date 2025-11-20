@@ -29,8 +29,9 @@ interface TaskKanbanProps {
   onViewTaskDetails?: (task: Task) => void;
   onCreateTask?: (status: string) => void;
   onQuickCreateTask?: (status: string, title: string, description?: string) => void;
-  onAddStatus?: () => void;
+  onAddStatus?: (position?: 'start' | 'end') => void;
   onDeleteStatus?: (statusId: string) => void;
+  onEditStatus?: (statusId: string, newName: string, newColor: string) => void;
 }
 
 export const TaskKanban = ({
@@ -44,6 +45,7 @@ export const TaskKanban = ({
   onQuickCreateTask,
   onAddStatus,
   onDeleteStatus,
+  onEditStatus,
 }: TaskKanbanProps) => {
   const { taskStatuses } = useWorkflow();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -337,9 +339,9 @@ export const TaskKanban = ({
             <Button
               variant="ghost"
               size="sm"
-              onClick={onAddStatus}
+              onClick={() => onAddStatus('start')}
               className="h-8 w-8 p-0 rounded-full border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/50"
-              title="Add new status"
+              title="Add new status at start"
             >
               <Plus className="h-4 w-4" />
             </Button>
@@ -353,6 +355,7 @@ export const TaskKanban = ({
               <TaskColumn
                 status={status.name}
                 statusColor={status.color}
+                statusId={status.id}
                 projectId={projectId}
                 tasks={statusTasks}
                 onDeleteTask={onDeleteTask}
@@ -360,6 +363,7 @@ export const TaskKanban = ({
                 onCreateTask={onCreateTask}
                 onQuickCreateTask={onQuickCreateTask}
                 onDeleteStatus={statusTasks.length === 0 && onDeleteStatus ? () => onDeleteStatus(status.id) : undefined}
+                onEditStatus={onEditStatus}
               />
               {/* Add Status Button after each column */}
               {onAddStatus && index === taskStatuses.length - 1 && (
@@ -367,9 +371,9 @@ export const TaskKanban = ({
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={onAddStatus}
+                    onClick={() => onAddStatus('end')}
                     className="h-8 w-8 p-0 rounded-full border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/50"
-                    title="Add new status"
+                    title="Add new status at end"
                   >
                     <Plus className="h-4 w-4" />
                   </Button>

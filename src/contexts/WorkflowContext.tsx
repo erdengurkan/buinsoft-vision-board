@@ -7,11 +7,11 @@ interface WorkflowContextType {
   projectStatuses: StatusColumn[];
   taskStatuses: StatusColumn[];
   labels: Label[];
-  addProjectStatus: (status: Omit<StatusColumn, "id" | "order">) => void;
+  addProjectStatus: (status: Omit<StatusColumn, "id"> & { order?: number }) => void;
   updateProjectStatus: (id: string, updates: Partial<StatusColumn>) => void;
   deleteProjectStatus: (id: string) => void;
   reorderProjectStatuses: (statuses: StatusColumn[]) => void;
-  addTaskStatus: (status: Omit<StatusColumn, "id" | "order">) => void;
+  addTaskStatus: (status: Omit<StatusColumn, "id"> & { order?: number }) => void;
   updateTaskStatus: (id: string, updates: Partial<StatusColumn>) => void;
   deleteTaskStatus: (id: string) => void;
   reorderTaskStatuses: (statuses: StatusColumn[]) => void;
@@ -105,7 +105,7 @@ export const WorkflowProvider = ({ children }: { children: ReactNode }) => {
   const labels = data?.labels || defaultLabels;
 
   // Task Status CRUD functions
-  const addTaskStatus = async (status: Omit<StatusColumn, "id" | "order">) => {
+  const addTaskStatus = async (status: Omit<StatusColumn, "id"> & { order?: number }) => {
     try {
       const url = `${API_URL}/workflow/status`;
       const payload = {

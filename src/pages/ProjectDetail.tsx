@@ -42,7 +42,7 @@ const ProjectDetail = () => {
   const { addComment, deleteComment, getProjectComments } = useComments(project?.id);
   const { getProjectTotalTime } = useWorklog();
   const queryClient = useQueryClient();
-  const { taskStatuses, addTaskStatus, deleteTaskStatus } = useWorkflow();
+  const { taskStatuses, addTaskStatus, deleteTaskStatus, updateTaskStatus } = useWorkflow();
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isTaskDetailModalOpen, setIsTaskDetailModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
@@ -54,6 +54,7 @@ const ProjectDetail = () => {
   const [showAddStatusDialog, setShowAddStatusDialog] = useState(false);
   const [newStatusName, setNewStatusName] = useState("");
   const [newStatusColor, setNewStatusColor] = useState("bg-blue-500");
+  const [addStatusPosition, setAddStatusPosition] = useState<'start' | 'end'>('end');
 
   // Task mutations - MUST be before conditional returns (Rules of Hooks)
   const updateTaskMutation = useMutation({
@@ -292,14 +293,28 @@ const ProjectDetail = () => {
     setDefaultTaskStatus(status);
     setIsTaskModalOpen(true);
   };
-
   const handleAddStatus = async () => {
     if (!newStatusName.trim()) return;
     
     try {
+      // Calculate order based on position
+      let order = 0;
+      if (addStatusPosition === 'end') {
+        // Add to end
+        const maxOrder = taskStatuses.length > 0 
+          ? Math.max(...taskStatuses.map(s => s.order ?? 0))
+          : -1;
+        order = maxOrder + 1;
+      } else {
+        // Add to start (order = 0), all others will shift
+        order = 0;
+        // We'll handle the shifting in backend or accept overlapping orders for now
+      }
+      
       await addTaskStatus({
         name: newStatusName.trim(),
         color: newStatusColor,
+        order,
       });
       toast.success("Status added");
       setShowAddStatusDialog(false);
@@ -308,6 +323,16 @@ const ProjectDetail = () => {
     } catch (error: any) {
       console.error("Error adding status:", error);
       toast.error(error?.message || "Failed to add status");
+    }
+  };
+
+  const handleEditStatus = async (statusId: string, newName: string, newColor: string) => {
+    try {
+      await updateTaskStatus(statusId, { name: newName, color: newColor });
+      toast.success("Status updated");
+    } catch (error: any) {
+      console.error("Error updating status:", error);
+      toast.error(error?.message || "Failed to update status");
     }
   };
 
@@ -387,21 +412,8 @@ const ProjectDetail = () => {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Back Button and Title */}
-      <div className="flex items-center gap-3 shrink-0 px-6 pt-2 pb-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate("/dashboard")}
-          className="shrink-0"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <h2 className="text-lg font-semibold">Tasks</h2>
-      </div>
-
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        <div className="flex items-center justify-between mb-3 px-6 shrink-0">
+        <div className="flex items-center justify-between mb-3 px-6 pt-4 shrink-0">
           <h2 className="text-lg font-semibold text-foreground">Tasks</h2>
           <Button size="sm" onClick={() => handleCreateTask()}>
             <Plus className="h-4 w-4 mr-1" />
@@ -426,7 +438,10 @@ const ProjectDetail = () => {
             }}
             onCreateTask={handleCreateTask}
             onQuickCreateTask={handleQuickCreateTask}
-            onAddStatus={() => setShowAddStatusDialog(true)}
+            onAddStatus={(position) => {
+              setAddStatusPosition(position || 'end');
+              setShowAddStatusDialog(true);
+            }}
             onDeleteStatus={async (statusId: string) => {
               try {
                 await deleteTaskStatus(statusId);
@@ -435,6 +450,7 @@ const ProjectDetail = () => {
                 toast.error(error.message || "Failed to delete status");
               }
             }}
+            onEditStatus={handleEditStatus}
           />
         ) : (
           <div className="text-center py-12 bg-muted/30 rounded-lg">

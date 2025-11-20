@@ -3,6 +3,37 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
+    // Create Default Workflow Statuses for Tasks
+    const defaultTaskStatuses = [
+        { name: 'Pending', color: 'bg-red-500', type: 'task', order: 0 },
+        { name: 'In Progress', color: 'bg-orange-500', type: 'task', order: 1 },
+        { name: 'Done', color: 'bg-green-500', type: 'task', order: 2 },
+    ];
+
+    for (const status of defaultTaskStatuses) {
+        await prisma.workflowStatus.upsert({
+            where: { name: status.name },
+            update: {},
+            create: status,
+        });
+    }
+
+    // Create Default Workflow Statuses for Projects
+    const defaultProjectStatuses = [
+        { name: 'Potential', color: 'bg-gray-500', type: 'project', order: 0 },
+        { name: 'Active', color: 'bg-green-500', type: 'project', order: 1 },
+        { name: 'On Hold', color: 'bg-orange-500', type: 'project', order: 2 },
+        { name: 'Completed', color: 'bg-blue-500', type: 'project', order: 3 },
+    ];
+
+    for (const status of defaultProjectStatuses) {
+        await prisma.workflowStatus.upsert({
+            where: { name: status.name },
+            update: {},
+            create: status,
+        });
+    }
+
     // Create Labels
     const labels = await Promise.all([
         prisma.label.create({ data: { name: 'Automation', color: 'bg-blue-500' } }),
@@ -30,7 +61,7 @@ async function main() {
                     {
                         title: 'Setup project structure',
                         description: 'Initialize project with proper folder structure',
-                        status: 'Todo',
+                        status: 'Pending',
                         assignee: 'Emre',
                         priority: 'High',
                         deadline: new Date('2025-01-20'),

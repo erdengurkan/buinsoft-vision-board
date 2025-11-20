@@ -16,6 +16,7 @@ import { useState, useRef, useEffect } from "react";
 interface TaskColumnProps {
   status: string;
   statusColor?: string;
+  statusId?: string;
   projectId: string;
   tasks: Task[];
   onDeleteTask: (id: string) => void;
@@ -23,11 +24,13 @@ interface TaskColumnProps {
   onCreateTask?: (status: string) => void;
   onQuickCreateTask?: (status: string, title: string, description?: string) => void;
   onDeleteStatus?: () => void;
+  onEditStatus?: (statusId: string, newName: string, newColor: string) => void;
 }
 
 export const TaskColumn = ({
   status,
   statusColor = "border-t-primary",
+  statusId,
   projectId,
   tasks,
   onDeleteTask,
@@ -35,13 +38,18 @@ export const TaskColumn = ({
   onCreateTask,
   onQuickCreateTask,
   onDeleteStatus,
+  onEditStatus,
 }: TaskColumnProps) => {
   const { setNodeRef } = useDroppable({ id: status });
   const [showAddButton, setShowAddButton] = useState(false);
   const [isCreatingTask, setIsCreatingTask] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskDescription, setNewTaskDescription] = useState("");
+  const [isEditingStatus, setIsEditingStatus] = useState(false);
+  const [editedStatusName, setEditedStatusName] = useState(status);
+  const [editedStatusColor, setEditedStatusColor] = useState(statusColor || "bg-blue-500");
   const inputRef = useRef<HTMLInputElement>(null);
+  const statusInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isCreatingTask && inputRef.current) {
@@ -49,29 +57,77 @@ export const TaskColumn = ({
     }
   }, [isCreatingTask]);
 
+  useEffect(() => {
+    if (isEditingStatus && statusInputRef.current) {
+      statusInputRef.current.focus();
+      statusInputRef.current.select();
+    }
+  }, [isEditingStatus]);
+
   return (
     <div className="flex flex-col min-w-[260px] sm:min-w-[280px] flex-1 shrink-0 h-full">
       <div
         className="mb-4 rounded-lg border-t-4 bg-card p-2 sm:p-3 shrink-0"
         style={{ borderTopColor: statusColor ? getColorFromTailwind(statusColor) : undefined }}
       >
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs sm:text-sm font-semibold text-foreground truncate">{status}</h3>
-          {tasks.length === 0 && onDeleteStatus ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDeleteStatus();
-              }}
-              className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-              title="Delete status"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
+        <div className="flex items-center justify-between gap-2">
+          {isEditingStatus && onEditStatus && statusId ? (
+            <div className="flex items-center gap-2 flex-1">
+              <Input
+                ref={statusInputRef}
+                type="text"
+                value={editedStatusName}
+                onChange={(e) => setEditedStatusName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    onEditStatus(statusId, editedStatusName, editedStatusColor);
+                    setIsEditingStatus(false);
+                  } else if (e.key === 'Escape') {
+                    setEditedStatusName(status);
+                    setIsEditingStatus(false);
+                  }
+                }}
+                className="h-7 text-sm font-semibold"
+                onBlur={() => {
+                  onEditStatus(statusId, editedStatusName, editedStatusColor);
+                  setIsEditingStatus(false);
+                }}
+              />
+            </div>
           ) : (
-            <span className="text-xs text-muted-foreground ml-2">{tasks.length}</span>
+            <h3 
+              className="text-xs sm:text-sm font-semibold text-foreground truncate cursor-pointer hover:opacity-70 transition-opacity"
+              onDoubleClick={() => {
+                if (onEditStatus && statusId) {
+                  setIsEditingStatus(true);
+                  setEditedStatusName(status);
+                  setEditedStatusColor(statusColor || "bg-blue-500");
+                }
+              }}
+              title={onEditStatus ? "Double-click to edit" : undefined}
+            >
+              {status}
+            </h3>
+          )}
+          {!isEditingStatus && (
+            <>
+              {tasks.length === 0 && onDeleteStatus ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteStatus();
+                  }}
+                  className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                  title="Delete status"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              ) : (
+                <span className="text-xs text-muted-foreground ml-2">{tasks.length}</span>
+              )}
+            </>
           )}
         </div>
       </div>

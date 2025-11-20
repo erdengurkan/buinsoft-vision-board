@@ -1,4 +1,4 @@
-import { Search, User, Settings, LogOut, ChevronDown } from "lucide-react";
+import { Search, User, Settings, LogOut, ChevronDown, ArrowLeft, Users, Calendar as CalendarIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -12,6 +12,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useState } from "react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useApp } from "@/contexts/AppContext";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, AlertCircle } from "lucide-react";
@@ -51,62 +56,136 @@ export const Header = () => {
     }
   };
 
+  // Get unique assignees from project tasks
+  const assignees = project 
+    ? Array.from(new Set([project.assignee, ...project.tasks.map(t => t.assignee)]))
+    : [];
+
   return (
-    <header className="flex h-16 items-center justify-between border-b border-border bg-card px-6">
-      {/* Left: Project Info (if on project detail page) or empty */}
-      <div className="flex items-center gap-3 flex-1 min-w-0">
-        {project ? (
-          <>
-            <div className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer hover:opacity-80 transition-opacity" onClick={handleProjectClick}>
-              <h1 className="text-base font-bold text-foreground truncate">
+    <header className="flex h-16 items-center border-b border-border bg-card px-6">
+      {/* Left: Back Button */}
+      {project && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate("/dashboard")}
+          className="shrink-0"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+      )}
+      
+      {/* Center: Project Info (if on project detail page) */}
+      {project ? (
+        <div 
+          className="flex items-center gap-4 flex-1 justify-center min-w-0 px-4 cursor-pointer group"
+          onDoubleClick={handleProjectClick}
+        >
+          {/* Project Title */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <h1 className="text-lg font-bold text-foreground truncate group-hover:text-primary transition-colors">
                 {project.title}
               </h1>
-              <span className="text-muted-foreground text-xs">•</span>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-                <User className="h-3 w-3" />
-                <span className="truncate">{project.assignee}</span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="font-medium">{project.title}</p>
+              <p className="text-xs text-muted-foreground mt-1">{project.description || "No description"}</p>
+            </TooltipContent>
+          </Tooltip>
+
+          <span className="text-muted-foreground">•</span>
+
+          {/* Date Range */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground group-hover:text-foreground transition-colors shrink-0">
+                <CalendarIcon className="h-3.5 w-3.5" />
+                <span>{format(project.startDate, "MMM d")} - {format(project.endDate, "MMM d")}</span>
               </div>
-              <span className="text-muted-foreground text-xs">•</span>
-              <span className="text-xs text-muted-foreground truncate">{project.client}</span>
-              <span className="text-muted-foreground text-xs">•</span>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-                <Calendar className="h-3 w-3" />
-                <span className="truncate">
-                  {format(project.startDate, "MMM d")} - {format(project.endDate, "MMM d")}
-                </span>
-              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="text-xs">Start: {format(project.startDate, "PPP")}</p>
+              <p className="text-xs">End: {format(project.endDate, "PPP")}</p>
               {project.deadline && (
-                <>
-                  <span className="text-muted-foreground text-xs">•</span>
-                  <div className={cn(
-                    "flex items-center gap-1 text-xs font-medium shrink-0",
-                    deadlineStatus === "overdue" ? "text-red-600 dark:text-red-400" :
-                      deadlineStatus === "soon" ? "text-orange-600 dark:text-orange-400" :
-                        "text-muted-foreground"
-                  )}>
-                    <Calendar className="h-3 w-3" />
-                    <span>{format(project.deadline, "MMM d")}</span>
-                  </div>
-                </>
+                <p className="text-xs text-orange-500 mt-1">Deadline: {format(project.deadline, "PPP")}</p>
               )}
-              {needsFollowUp && (
-                <>
-                  <span className="text-muted-foreground text-xs">•</span>
-                  <div className="flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400 font-medium shrink-0">
-                    <AlertCircle className="h-3 w-3" />
-                    <span>Follow-up</span>
+            </TooltipContent>
+          </Tooltip>
+
+          <span className="text-muted-foreground">•</span>
+
+          {/* Assignees - Avatar Group */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center -space-x-2 shrink-0">
+                {assignees.slice(0, 3).map((assignee, idx) => (
+                  <Avatar 
+                    key={assignee} 
+                    className="h-7 w-7 border-2 border-background ring-1 ring-border hover:z-10 hover:scale-110 transition-transform cursor-pointer"
+                  >
+                    <AvatarFallback className="bg-gradient-to-br from-primary to-primary/70 text-primary-foreground text-xs font-semibold">
+                      {assignee.split(' ').map(n => n[0]).join('').toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                ))}
+                {assignees.length > 3 && (
+                  <div className="h-7 w-7 rounded-full border-2 border-background bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground ring-1 ring-border hover:z-10 hover:scale-110 transition-transform cursor-pointer">
+                    +{assignees.length - 3}
                   </div>
-                </>
-              )}
-              {project.labels.length > 0 && (
-                <>
-                  <span className="text-muted-foreground text-xs">•</span>
-                  <div className="flex items-center gap-1 shrink-0">
+                )}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <div className="space-y-1">
+                <p className="text-xs font-medium flex items-center gap-1">
+                  <Users className="h-3 w-3" />
+                  Team Members
+                </p>
+                {assignees.map(assignee => (
+                  <p key={assignee} className="text-xs text-muted-foreground">• {assignee}</p>
+                ))}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+
+          <span className="text-muted-foreground">•</span>
+
+          {/* Priority Badge */}
+          <Badge className={cn("text-xs shrink-0 group-hover:shadow-md transition-shadow", 
+            project.priority === "Low" ? "bg-priority-low hover:bg-priority-low" :
+            project.priority === "Medium" ? "bg-priority-medium hover:bg-priority-medium" :
+            project.priority === "High" ? "bg-priority-high hover:bg-priority-high" :
+            "bg-red-900 hover:bg-red-900"
+          )}>
+            {project.priority}
+          </Badge>
+
+          {/* Status Badge */}
+          <Badge 
+            variant="outline" 
+            className={cn("text-xs shrink-0 group-hover:shadow-md transition-shadow",
+              project.status === "Done" && "bg-green-900/20 border-green-900/50 text-green-100",
+              project.status === "Active" && "bg-blue-900/20 border-blue-900/50 text-blue-100",
+              project.status === "Potential" && "bg-gray-900/20 border-gray-900/50 text-gray-100",
+              project.status === "On Hold" && "bg-orange-900/20 border-orange-900/50 text-orange-100"
+            )}
+          >
+            {project.status}
+          </Badge>
+
+          {/* Labels */}
+          {project.labels.length > 0 && (
+            <>
+              <span className="text-muted-foreground">•</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex gap-1 shrink-0">
                     {project.labels.slice(0, 2).map((label) => (
                       <Badge
                         key={label.id}
                         variant="secondary"
-                        className={cn("text-xs px-1 py-0", label.color, "text-white")}
+                        className={cn("text-xs px-2 py-0 group-hover:shadow-md transition-shadow", label.color, "text-white")}
                       >
                         {label.name}
                       </Badge>
@@ -115,29 +194,27 @@ export const Header = () => {
                       <span className="text-xs text-muted-foreground">+{project.labels.length - 2}</span>
                     )}
                   </div>
-                </>
-              )}
-            </div>
-            
-            <div className="flex items-center gap-2 shrink-0">
-              <Badge className={cn("text-xs px-2 py-0", 
-                project.priority === "Low" ? "bg-priority-low text-white" :
-                project.priority === "Medium" ? "bg-priority-medium text-white" :
-                project.priority === "High" ? "bg-priority-high text-white" :
-                "bg-red-900 text-white"
-              )}>
-                {project.priority}
-              </Badge>
-              <Badge variant="outline" className="text-xs px-2 py-0">
-                {project.status}
-              </Badge>
-            </div>
-          </>
-        ) : null}
-      </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium">Labels</p>
+                    {project.labels.map(label => (
+                      <p key={label.id} className="text-xs text-muted-foreground">• {label.name}</p>
+                    ))}
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="flex-1 flex justify-center">
+          <h1 className="text-xl font-bold text-foreground">Buinsoft</h1>
+        </div>
+      )}
 
       {/* Right: Search and User Menu */}
-      <div className="flex items-center gap-3 shrink-0">
+      <div className="flex items-center gap-3 shrink-0 ml-auto">
         {/* Search - Icon only, expands on click */}
         {isSearchOpen ? (
           <div className="relative w-64">
