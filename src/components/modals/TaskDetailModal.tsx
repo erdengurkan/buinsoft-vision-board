@@ -76,6 +76,8 @@ export const TaskDetailModal = ({
 
   const [isEditing, setIsEditing] = useState(false);
   const [deadlinePopoverOpen, setDeadlinePopoverOpen] = useState(false);
+  const [showUnsavedChangesDialog, setShowUnsavedChangesDialog] = useState(false);
+  const [pendingClose, setPendingClose] = useState(false);
   const [initialFormData, setInitialFormData] = useState<Partial<Task>>({});
   const [formData, setFormData] = useState<Partial<Task>>({
     title: "",
@@ -166,20 +168,50 @@ export const TaskDetailModal = ({
     );
   };
 
-  const handleDialogOpenChange = (newOpen: boolean) => {
-    if (!newOpen && isEditing && hasChanges()) {
-      // Only ask for confirmation if there are actual changes
-      if (window.confirm("You have unsaved changes. Do you want to discard them?")) {
-        handleCancel();
-        onOpenChange(false);
-      }
+  const handleCloseRequest = () => {
+    if (isEditing && hasChanges()) {
+      // Show custom confirmation dialog
+      setShowUnsavedChangesDialog(true);
+      setPendingClose(true);
     } else {
-      // No changes or not editing, close normally
-      if (!newOpen) {
-        handleCancel();
+      // No changes, close immediately
+      handleCancel();
+      onOpenChange(false);
+    }
+  };
+
+  const handleDialogOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      // If unsaved changes dialog is open, close it first
+      if (showUnsavedChangesDialog) {
+        setShowUnsavedChangesDialog(false);
+        setPendingClose(false);
+        return;
       }
+      // Otherwise, check for unsaved changes
+      handleCloseRequest();
+    } else {
       onOpenChange(newOpen);
     }
+  };
+
+  const handleSaveAndClose = async () => {
+    await handleSave();
+    setShowUnsavedChangesDialog(false);
+    setPendingClose(false);
+    onOpenChange(false);
+  };
+
+  const handleDiscardAndClose = () => {
+    handleCancel();
+    setShowUnsavedChangesDialog(false);
+    setPendingClose(false);
+    onOpenChange(false);
+  };
+
+  const handleCancelUnsavedDialog = () => {
+    setShowUnsavedChangesDialog(false);
+    setPendingClose(false);
   };
 
   return (
@@ -187,17 +219,15 @@ export const TaskDetailModal = ({
       <DialogContent 
         className="max-w-6xl max-h-[90vh] overflow-y-auto" 
         onInteractOutside={(e) => {
-          if (isEditing) {
+          if (isEditing && hasChanges()) {
             e.preventDefault();
+            handleCloseRequest();
           }
         }}
         onEscapeKeyDown={(e) => {
-          if (isEditing) {
+          if (isEditing && hasChanges()) {
             e.preventDefault();
-            if (window.confirm("You have unsaved changes. Do you want to discard them?")) {
-              handleCancel();
-              onOpenChange(false);
-            }
+            handleCloseRequest();
           }
         }}
       >
@@ -244,7 +274,7 @@ export const TaskDetailModal = ({
             <div className="flex items-center gap-2">
               {isEditing ? (
                 <>
-                  <Button variant="outline" onClick={handleCancel}>
+                  <Button variant="outline" onClick={handleCloseRequest}>
                     Cancel
                   </Button>
                   <Button onClick={handleSave}>
@@ -442,6 +472,55 @@ export const TaskDetailModal = ({
           </div>
         </div>
       </DialogContent>
+
+      {/* Unsaved Changes Confirmation Dialog */}
+      <Dialog 
+        open={showUnsavedChangesDialog} 
+        onOpenChange={(open) => {
+          if (!open) {
+            handleCancelUnsavedDialog();
+          }
+        }}
+      >
+        <DialogContent 
+          className="max-w-md"
+          onEscapeKeyDown={(e) => {
+            e.preventDefault();
+            handleCancelUnsavedDialog();
+          }}
+          onInteractOutside={(e) => {
+            e.preventDefault();
+            handleCancelUnsavedDialog();
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle className="text-xl">You made changes</DialogTitle>
+            <DialogDescription className="text-base mt-2">
+              You have unsaved changes. Do you want to save them before closing?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center justify-end gap-3 mt-6">
+            <Button
+              variant="outline"
+              onClick={handleCancelUnsavedDialog}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleDiscardAndClose}
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            >
+              Don't Save
+            </Button>
+            <Button
+              onClick={handleSaveAndClose}
+            >
+              Save
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 };
