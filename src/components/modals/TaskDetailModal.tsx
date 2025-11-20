@@ -434,9 +434,23 @@ export const TaskDetailModal = ({
           </div>
         </div>
 
-        {/* Bottom Bar: Cancel/Save buttons on left, Timer on right */}
+        {/* Bottom Bar: Timer on left, Cancel/Save buttons on right */}
         <div className="flex items-center justify-between pt-4 mt-4 border-t border-border">
-          {/* Left: Cancel and Save Changes buttons */}
+          {/* Left: Timer - Single line with Start button, time, and total */}
+          {project && (
+            <div className="flex items-center gap-3">
+              <TaskWorklog
+                taskId={task.id}
+                projectId={project.id}
+                worklog={taskWorklog}
+                onAddWorklog={(entry) => addWorklogEntry(entry)}
+                onDeleteWorklog={deleteWorklogEntry}
+                compact={true}
+              />
+            </div>
+          )}
+
+          {/* Right: Cancel and Save Changes buttons */}
           <div className="flex items-center gap-2">
             {isEditing ? (
               <>
@@ -462,20 +476,6 @@ export const TaskDetailModal = ({
               </>
             )}
           </div>
-
-          {/* Right: Timer - Single line with Start button, time, and total */}
-          {project && (
-            <div className="flex items-center gap-3">
-              <TaskWorklog
-                taskId={task.id}
-                projectId={project.id}
-                worklog={taskWorklog}
-                onAddWorklog={(entry) => addWorklogEntry(entry)}
-                onDeleteWorklog={deleteWorklogEntry}
-                compact={true}
-              />
-            </div>
-          )}
         </div>
       </DialogContent>
 
