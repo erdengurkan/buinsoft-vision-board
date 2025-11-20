@@ -232,89 +232,15 @@ export const TaskDetailModal = ({
         }}
       >
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <DialogTitle className="text-2xl flex items-center gap-2 flex-wrap">
-                {isEditing ? (
-                  <Input
-                    value={formData.title || ""}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className="text-2xl font-semibold"
-                    placeholder="Task title"
-                  />
-                ) : (
-                  <>
-                    {task.title}
-                    {task.flowDiagram && (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button
-                              type="button"
-                              onClick={handleOpenFlow}
-                              className="inline-flex items-center rounded-md border border-input bg-background px-2 py-0.5 text-xs font-semibold transition-colors hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer ml-2"
-                            >
-                              <Workflow className="h-3 w-3 mr-1" />
-                              Flow
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>This task has a flow diagram. Click to edit.</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    )}
-                  </>
-                )}
-              </DialogTitle>
-              <DialogDescription className="text-sm text-muted-foreground mt-1">
-                {projectTitle ? `Project: ${projectTitle}` : "Task details"}
-              </DialogDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              {isEditing ? (
-                <>
-                  <Button variant="outline" onClick={handleCloseRequest}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleSave}>
-                    Save Changes
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button variant="outline" onClick={() => setIsEditing(true)} className="gap-2">
-                    <Edit2 className="h-4 w-4" />
-                    Edit Task
-                  </Button>
-                  <Button variant="outline" onClick={handleOpenFlow} className="gap-2">
-                    <Workflow className="h-4 w-4" />
-                    {task.flowDiagram ? "Edit Flow" : "Open Flow Diagram"}
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
+          <DialogDescription className="text-sm text-muted-foreground">
+            {projectTitle ? `Project: ${projectTitle}` : "Task details"}
+          </DialogDescription>
         </DialogHeader>
 
-        {/* Time Tracking Header - Compact */}
-        {project && (
-          <div className="mt-4 mb-4 pb-4 border-b border-border">
-            <TaskWorklog
-              taskId={task.id}
-              projectId={project.id}
-              worklog={taskWorklog}
-              onAddWorklog={(entry) => addWorklogEntry(entry)}
-              onDeleteWorklog={deleteWorklogEntry}
-              compact={true}
-            />
-          </div>
-        )}
-
         <div className="grid grid-cols-3 gap-6">
-          {/* Left Column: Task Info, Description */}
+          {/* Left Column: Task Info, Title, Description */}
           <div className="col-span-2 space-y-6">
-            {/* Task Info */}
+            {/* Task Info - Moved to top */}
             <div className="grid grid-cols-2 gap-4 p-4 border border-border rounded-lg">
               <div className="space-y-2">
                 <Label className="text-sm text-muted-foreground">Status</Label>
@@ -428,6 +354,42 @@ export const TaskDetailModal = ({
               )}
             </div>
 
+            {/* Title - Moved above Description */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Title</Label>
+              {isEditing ? (
+                <Input
+                  value={formData.title || ""}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  className="text-xl font-semibold"
+                  placeholder="Task title"
+                />
+              ) : (
+                <div className="text-xl font-semibold flex items-center gap-2">
+                  {task.title}
+                  {task.flowDiagram && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={handleOpenFlow}
+                            className="inline-flex items-center rounded-md border border-input bg-background px-2 py-0.5 text-xs font-semibold transition-colors hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
+                          >
+                            <Workflow className="h-3 w-3 mr-1" />
+                            Flow
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>This task has a flow diagram. Click to edit.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Description */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">Description</Label>
@@ -470,6 +432,50 @@ export const TaskDetailModal = ({
               />
             )}
           </div>
+        </div>
+
+        {/* Bottom Bar: Cancel/Save buttons on left, Timer on right */}
+        <div className="flex items-center justify-between pt-4 mt-4 border-t border-border">
+          {/* Left: Cancel and Save Changes buttons */}
+          <div className="flex items-center gap-2">
+            {isEditing ? (
+              <>
+                <Button variant="outline" onClick={handleCloseRequest}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSave}>
+                  Save Changes
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => setIsEditing(true)} className="gap-2">
+                  <Edit2 className="h-4 w-4" />
+                  Edit Task
+                </Button>
+                {task.flowDiagram && (
+                  <Button variant="outline" onClick={handleOpenFlow} className="gap-2">
+                    <Workflow className="h-4 w-4" />
+                    Edit Flow
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Right: Timer - Single line with Start button, time, and total */}
+          {project && (
+            <div className="flex items-center gap-3">
+              <TaskWorklog
+                taskId={task.id}
+                projectId={project.id}
+                worklog={taskWorklog}
+                onAddWorklog={(entry) => addWorklogEntry(entry)}
+                onDeleteWorklog={deleteWorklogEntry}
+                compact={true}
+              />
+            </div>
+          )}
         </div>
       </DialogContent>
 
