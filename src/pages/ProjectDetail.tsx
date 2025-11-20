@@ -382,14 +382,63 @@ const ProjectDetail = () => {
           <div className="p-4 rounded-lg border border-border bg-card">
             <h3 className="text-lg font-semibold mb-2">Time Spent</h3>
             {projectTotalTime > 0 ? (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b">
                   <span className="text-sm text-muted-foreground">Total Project Time</span>
                   <span className="text-lg font-bold">
                     {Math.floor(projectTotalTime / 3600)}h {Math.floor((projectTotalTime % 3600) / 60)}m
                   </span>
                 </div>
-                {/* Task-level time breakdown could go here */}
+                
+                {/* Task-level breakdown */}
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase">By Task</h4>
+                  {project.tasks
+                    .filter((task) => {
+                      const taskTime = task.worklogs?.reduce((sum, log) => sum + log.durationMs, 0) || 0;
+                      return taskTime > 0;
+                    })
+                    .map((task) => {
+                      const taskTime = task.worklogs?.reduce((sum, log) => sum + log.durationMs, 0) || 0;
+                      const taskTimeSeconds = Math.floor(taskTime / 1000);
+                      const hours = Math.floor(taskTimeSeconds / 3600);
+                      const minutes = Math.floor((taskTimeSeconds % 3600) / 60);
+                      
+                      // Group by user
+                      const byUser = task.worklogs?.reduce((acc: Record<string, number>, log) => {
+                        acc[log.user] = (acc[log.user] || 0) + log.durationMs;
+                        return acc;
+                      }, {}) || {};
+
+                      return (
+                        <div key={task.id} className="text-xs space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium truncate">{task.title}</span>
+                            <span className="text-muted-foreground">
+                              {hours}h {minutes}m
+                            </span>
+                          </div>
+                          {Object.entries(byUser).map(([user, timeMs]) => {
+                            const userTimeSeconds = Math.floor(timeMs / 1000);
+                            const userHours = Math.floor(userTimeSeconds / 3600);
+                            const userMinutes = Math.floor((userTimeSeconds % 3600) / 60);
+                            return (
+                              <div key={user} className="pl-2 text-muted-foreground flex items-center justify-between">
+                                <span className="truncate">{user}</span>
+                                <span>{userHours}h {userMinutes}m</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  {project.tasks.filter((task) => {
+                    const taskTime = task.worklogs?.reduce((sum, log) => sum + log.durationMs, 0) || 0;
+                    return taskTime > 0;
+                  }).length === 0 && (
+                    <p className="text-xs text-muted-foreground">No task time tracked yet</p>
+                  )}
+                </div>
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">No time tracked yet</p>

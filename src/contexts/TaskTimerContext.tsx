@@ -75,7 +75,7 @@ export const TaskTimerProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [activeTimer]);
 
-  const startTimer = useCallback((taskId: string, projectId: string) => {
+  const startTimer = useCallback(async (taskId: string, projectId: string) => {
     const newTimer: ActiveTimer = {
       taskId,
       projectId,
@@ -83,13 +83,50 @@ export const TaskTimerProvider = ({ children }: { children: ReactNode }) => {
     };
     setActiveTimer(newTimer);
     saveTimer(newTimer);
+
+    // Send to backend for SSE broadcasting
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || "/api";
+      const DEFAULT_USER = "Emre Kılınç"; // TODO: Get from auth context
+      await fetch(`${API_URL}/timers/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          taskId,
+          projectId,
+          userId: DEFAULT_USER,
+        }),
+      });
+    } catch (error) {
+      console.error("Failed to start timer on backend:", error);
+      // Continue with local timer even if backend fails
+    }
   }, []);
 
-  const stopTimer = useCallback(() => {
+  const stopTimer = useCallback(async () => {
+    const currentTimer = activeTimer;
     setActiveTimer(null);
     saveTimer(null);
     setElapsedSeconds(0);
-  }, []);
+
+    // Send to backend for SSE broadcasting
+    if (currentTimer) {
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || "/api";
+        const DEFAULT_USER = "Emre Kılınç"; // TODO: Get from auth context
+        await fetch(`${API_URL}/timers/stop`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: DEFAULT_USER,
+          }),
+        });
+      } catch (error) {
+        console.error("Failed to stop timer on backend:", error);
+        // Continue even if backend fails
+      }
+    }
+  }, [activeTimer]);
 
   return (
     <TaskTimerContext.Provider

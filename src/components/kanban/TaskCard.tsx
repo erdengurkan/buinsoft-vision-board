@@ -56,7 +56,9 @@ export const TaskCard = ({ task, projectId, onDelete, onViewDetails }: TaskCardP
       className={cn(
         "group relative rounded-lg border bg-card p-3 shadow-sm transition-all hover:shadow-md",
         isDragging && "opacity-50 shadow-lg",
-        isBeingWorkedOn ? "border-red-500 border-2 shadow-red-500/20" : "border-border"
+        isBeingWorkedOn 
+          ? "border-red-500 border-2 shadow-red-500/20 bg-red-50/50 dark:bg-red-950/20" 
+          : "border-border"
       )}
     >
       <div
@@ -71,18 +73,18 @@ export const TaskCard = ({ task, projectId, onDelete, onViewDetails }: TaskCardP
       </div>
 
       <div className="space-y-1.5 pr-6">
-        {isBeingWorkedOn && (
+        {isBeingWorkedOn && activeTimer && (
           <div className="flex items-center gap-1 mb-1">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400 font-medium animate-pulse">
                     <Clock className="h-3 w-3" />
-                    <span>In Progress</span>
+                    <span>Working: {activeTimer.userId || "User"}</span>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Being worked on by user</p>
+                  <p>Being worked on by {activeTimer.userId || "user"}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
