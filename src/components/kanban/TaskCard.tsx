@@ -1,14 +1,16 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Task, Priority } from "@/types";
-import { User, Trash2, Workflow } from "lucide-react";
+import { User, Trash2, Workflow, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useActiveTimers } from "@/hooks/useActiveTimers";
 
 interface TaskCardProps {
   task: Task;
+  projectId: string;
   onDelete: (id: string) => void;
   onViewDetails?: (task: Task) => void;
 }
@@ -20,7 +22,7 @@ const priorityColors: Record<Priority, string> = {
   Critical: "bg-red-900 text-white",
 };
 
-export const TaskCard = ({ task, onDelete, onViewDetails }: TaskCardProps) => {
+export const TaskCard = ({ task, projectId, onDelete, onViewDetails }: TaskCardProps) => {
   const {
     attributes,
     listeners,
@@ -29,6 +31,13 @@ export const TaskCard = ({ task, onDelete, onViewDetails }: TaskCardProps) => {
     transition,
     isDragging,
   } = useSortable({ id: task.id });
+
+  // Fetch active timers for this project
+  const { data: activeTimers = [] } = useActiveTimers(projectId);
+
+  // Check if someone is working on this task
+  const activeTimer = activeTimers.find(timer => timer.taskId === task.id);
+  const isBeingWorkedOn = !!activeTimer;
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -45,8 +54,9 @@ export const TaskCard = ({ task, onDelete, onViewDetails }: TaskCardProps) => {
       ref={setNodeRef}
       style={style}
       className={cn(
-        "group relative rounded-lg border border-border bg-card p-3 shadow-sm transition-all hover:shadow-md",
-        isDragging && "opacity-50 shadow-lg"
+        "group relative rounded-lg border bg-card p-3 shadow-sm transition-all hover:shadow-md",
+        isDragging && "opacity-50 shadow-lg",
+        isBeingWorkedOn ? "border-red-500 border-2 shadow-red-500/20" : "border-border"
       )}
     >
       <div
@@ -61,6 +71,23 @@ export const TaskCard = ({ task, onDelete, onViewDetails }: TaskCardProps) => {
       </div>
 
       <div className="space-y-1.5 pr-6">
+        {isBeingWorkedOn && (
+          <div className="flex items-center gap-1 mb-1">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400 font-medium animate-pulse">
+                    <Clock className="h-3 w-3" />
+                    <span>In Progress</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Being worked on by user</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        )}
         {task.flowDiagram && (
           <div className="flex items-center gap-1 mb-0.5">
             <TooltipProvider>
@@ -78,7 +105,7 @@ export const TaskCard = ({ task, onDelete, onViewDetails }: TaskCardProps) => {
             </TooltipProvider>
           </div>
         )}
-        <h4 
+        <h4
           className="font-medium text-sm text-card-foreground cursor-pointer hover:text-primary transition-colors leading-tight"
           onClick={() => onViewDetails?.(task)}
         >

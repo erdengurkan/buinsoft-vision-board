@@ -24,6 +24,9 @@ import { RichTextEditor } from "@/components/editor/RichTextEditor";
 import { toast } from "sonner";
 import { teamMembers } from "@/data/mockData";
 import { useWorkflow } from "@/contexts/WorkflowContext";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+
+const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 interface TaskDetailModalProps {
   open: boolean;
@@ -47,11 +50,29 @@ export const TaskDetailModal = ({
 }: TaskDetailModalProps) => {
   const navigate = useNavigate();
   const { getTaskWorklog, addWorklogEntry, deleteWorklogEntry } = useWorklog();
-  const { addComment, deleteComment, getTaskComments } = useComments();
-  const { logActivity } = useActivityLog();
+  const { projects } = useApp();
+  const project = task ? projects.find((p) => p.tasks.some((t) => t.id === task.id)) : undefined;
+  const { addComment, deleteComment, getTaskComments } = useComments(project?.id);
+  const { logActivity } = useActivityLog(project?.id);
   const { activeTimer, stopTimer } = useTaskTimer();
-  const { projects, updateProject } = useApp();
   const { taskStatuses } = useWorkflow();
+  const queryClient = useQueryClient();
+
+  // Task mutation - MUST be before conditional returns (Rules of Hooks)
+  const updateTaskMutation = useMutation({
+    mutationFn: async ({ taskId, updates }: { taskId: string; updates: Partial<Task> }) => {
+      const res = await fetch(`${API_URL}/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) throw new Error("Failed to update task");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
 
   const [isEditing, setIsEditing] = useState(false);
   const [deadlinePopoverOpen, setDeadlinePopoverOpen] = useState(false);
@@ -83,9 +104,6 @@ export const TaskDetailModal = ({
 
   const taskWorklog = getTaskWorklog(task.id);
   const taskComments = getTaskComments(task.id);
-  
-  // Find project for this task
-  const project = projects.find((p) => p.tasks.some((t) => t.id === task.id));
 
   const handleOpenFlow = (e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -95,7 +113,7 @@ export const TaskDetailModal = ({
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!project) return;
 
     if (!formData.title?.trim()) {
@@ -103,20 +121,24 @@ export const TaskDetailModal = ({
       return;
     }
 
-    const updatedTasks = project.tasks.map((t) =>
-      t.id === task.id ? { ...t, ...formData } : t
-    );
+    try {
+      await updateTaskMutation.mutateAsync({
+        taskId: task.id,
+        updates: formData,
+      });
 
-    updateProject(project.id, { tasks: updatedTasks });
-    logActivity(
-      project.id,
-      "task_edited",
-      `Task "${formData.title}" updated`,
-      { taskId: task.id }
-    );
+      logActivity(
+        project.id,
+        "task_edited",
+        `Task "${formData.title}" updated`,
+        { taskId: task.id }
+      );
 
-    setIsEditing(false);
-    toast.success("Task updated");
+      setIsEditing(false);
+      toast.success("Task updated");
+    } catch (error) {
+      toast.error("Failed to update task");
+    }
   };
 
   const handleCancel = () => {

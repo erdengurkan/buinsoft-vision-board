@@ -11,6 +11,7 @@ import { getColorFromTailwind } from "@/utils/colorUtils";
 interface TaskColumnProps {
   status: string;
   statusColor?: string;
+  projectId: string;
   tasks: Task[];
   onDeleteTask: (id: string) => void;
   onViewTaskDetails?: (task: Task) => void;
@@ -19,6 +20,7 @@ interface TaskColumnProps {
 export const TaskColumn = ({
   status,
   statusColor = "border-t-primary",
+  projectId,
   tasks,
   onDeleteTask,
   onViewTaskDetails,
@@ -46,9 +48,10 @@ export const TaskColumn = ({
             strategy={verticalListSortingStrategy}
           >
             {tasks.map((task) => (
-              <TaskCard 
-                key={task.id} 
-                task={task} 
+              <TaskCard
+                key={task.id}
+                task={task}
+                projectId={projectId}
                 onDelete={onDeleteTask}
                 onViewDetails={onViewTaskDetails}
               />

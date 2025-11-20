@@ -1,0 +1,33 @@
+import { useQuery } from '@tanstack/react-query';
+
+const API_URL = import.meta.env.VITE_API_URL || '/api';
+
+export interface ActiveTimer {
+    id: string;
+    taskId: string;
+    projectId: string;
+    startedAt: string;
+    userId: string;
+    task?: {
+        id: string;
+        title: string;
+        projectId: string;
+    };
+}
+
+export const useActiveTimers = (projectId?: string) => {
+    return useQuery<ActiveTimer[]>({
+        queryKey: ['activeTimers', projectId],
+        queryFn: async () => {
+            const url = projectId
+                ? `${API_URL}/timers/active?projectId=${projectId}`
+                : `${API_URL}/timers/active`;
+
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('Failed to fetch active timers');
+            return res.json();
+        },
+        refetchInterval: 5000, // Refetch every 5 seconds as backup (SSE is primary)
+        staleTime: 0, // Always consider stale to ensure fresh data
+    });
+};

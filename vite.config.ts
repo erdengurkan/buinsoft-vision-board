@@ -8,9 +8,17 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    strictPort: false,
+    allowedHosts: [
+      'app.buinsoft.com',
+      'localhost',
+      '.buinsoft.com', // Allow all subdomains
+    ],
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        // Backend Docker container'da port 80'de çalışıyor (içeride 3000)
+        // Development ve production'da aynı yere git (Docker container)
+        target: 'http://localhost:80',
         changeOrigin: true,
       },
     },
@@ -19,6 +27,20 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+    },
+  },
+  build: {
+    sourcemap: true, // Enable source maps for better debugging
+    chunkSizeWarningLimit: 1000, // Increase warning limit
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'ui-vendor': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-toast'],
+          'flow-editor': ['@xyflow/react', '@xyflow/system'],
+          'editor': ['@tiptap/react', '@tiptap/starter-kit'],
+        },
+      },
     },
   },
 }));

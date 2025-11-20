@@ -6,12 +6,16 @@ import { ReactFlowProvider } from "@xyflow/react";
 import { Node, Edge } from "@xyflow/react";
 import { toast } from "sonner";
 import { FlowDiagram } from "@/types";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+
+const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 const TaskFlowEditorPage = () => {
   const { projectId, taskId } = useParams<{ projectId: string; taskId: string }>();
   const navigate = useNavigate();
-  const { projects, updateProject } = useApp();
+  const { projects } = useApp();
   const { logActivity } = useActivityLog();
+  const queryClient = useQueryClient();
 
   // Validate route params
   if (!projectId || !taskId) {
@@ -49,7 +53,44 @@ const TaskFlowEditorPage = () => {
     );
   }
 
-  const handleSave = (nodes: Node[], edges: Edge[], viewport: { x: number; y: number; zoom: number }) => {
+  const updateTaskMutation = useMutation({
+    mutationFn: async ({ taskId, updates }: { taskId: string; updates: Partial<any> }) => {
+      const res = await fetch(`${API_URL}/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) throw new Error("Failed to update task");
+      return res.json();
+    },
+    onSuccess: (data, variables) => {
+      // Optimistic update: preserve task status when updating flowDiagram
+      queryClient.setQueryData(["projects"], (oldData: any) => {
+        if (!oldData) return oldData;
+        return oldData.map((p: any) => {
+          if (p.id === projectId) {
+            return {
+              ...p,
+              tasks: p.tasks.map((t: any) => {
+                if (t.id === variables.taskId) {
+                  // Only update flowDiagram, preserve all other fields including status
+                  return { ...t, flowDiagram: variables.updates.flowDiagram };
+                }
+                return t;
+              }),
+            };
+          }
+          return p;
+        });
+      });
+      // Then invalidate to get fresh data
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
+
+  const handleSave = async (nodes: Node[], edges: Edge[], viewport: { x: number; y: number; zoom: number }) => {
+    if (!project || !taskId) return;
+
     const flowDiagram: FlowDiagram = {
       nodes: nodes.map((node) => ({
         id: node.id,
@@ -67,21 +108,25 @@ const TaskFlowEditorPage = () => {
       viewport,
     };
 
-    const updatedTasks = project.tasks.map((t) =>
-      t.id === taskId ? { ...t, flowDiagram } : t
-    );
+    try {
+      // Only send flowDiagram, explicitly exclude other fields to prevent status reset
+      await updateTaskMutation.mutateAsync({
+        taskId,
+        updates: { flowDiagram },
+      });
 
-    updateProject(project.id, { tasks: updatedTasks });
+      logActivity(
+        project.id,
+        "task_edited",
+        `Flow diagram updated for task "${task.title}"`,
+        { taskId: task.id }
+      );
 
-    logActivity(
-      project.id,
-      "task_edited",
-      `Flow diagram updated for task "${task.title}"`,
-      { taskId: task.id }
-    );
-
-    toast.success("Flow diagram saved");
-    navigate(`/project/${projectId}`);
+      toast.success("Flow diagram saved");
+      navigate(`/project/${projectId}`);
+    } catch (error) {
+      toast.error("Failed to save flow diagram");
+    }
   };
 
   const handleCancel = () => {

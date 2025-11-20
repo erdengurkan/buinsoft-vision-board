@@ -1,84 +1,110 @@
-import { useState, useEffect, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ActivityLog, ActivityType } from "@/types";
+import { toast } from "sonner";
 
-const STORAGE_KEY = "buinsoft-vision-board-activity-logs";
-const DEFAULT_USER = "Buinsoft User";
+const API_URL = import.meta.env.VITE_API_URL || "/api";
+const DEFAULT_USER = "Emre Kılınç";
 
-// Load activity logs from localStorage
-const loadActivityLogs = (): ActivityLog[] => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      return parsed.map((log: any) => ({
+export const useActivityLog = (projectId?: string) => {
+  const queryClient = useQueryClient();
+
+  // Fetch project activity logs if projectId provided
+  const { data: projectLogs = [] } = useQuery({
+    queryKey: ["activity-logs", projectId],
+    queryFn: async () => {
+      if (!projectId) return [];
+      const res = await fetch(`${API_URL}/activity-logs?projectId=${projectId}`);
+      if (!res.ok) throw new Error("Failed to fetch activity logs");
+      const data = await res.json();
+      return data.map((log: any) => ({
         ...log,
         timestamp: new Date(log.timestamp),
       }));
-    }
-  } catch (error) {
-    console.error("Error loading activity logs:", error);
-  }
-  return [];
-};
+    },
+    enabled: !!projectId,
+  });
 
-// Save activity logs to localStorage
-const saveActivityLogs = (logs: ActivityLog[]) => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
-  } catch (error) {
-    console.error("Error saving activity logs:", error);
-  }
-};
+  const logActivityMutation = useMutation({
+    mutationFn: async ({
+      projectId,
+      actionType,
+      description,
+      metadata,
+    }: {
+      projectId: string;
+      actionType: ActivityType;
+      description: string;
+      metadata?: ActivityLog["metadata"];
+    }) => {
+      const res = await fetch(`${API_URL}/activity-logs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          user: DEFAULT_USER,
+          actionType,
+          description,
+          metadata,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to create activity log");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+    onError: () => {
+      toast.error("Failed to log activity");
+    },
+  });
 
-export const useActivityLog = () => {
-  const [logs, setLogs] = useState<ActivityLog[]>(loadActivityLogs);
-
-  // Save logs whenever they change
-  useEffect(() => {
-    saveActivityLogs(logs);
-  }, [logs]);
-
-  const logActivity = useCallback(
-    (
-      projectId: string,
-      actionType: ActivityType,
-      description: string,
-      metadata?: ActivityLog["metadata"]
-    ) => {
-      const newLog: ActivityLog = {
-        id: `log-${Date.now()}-${Math.random()}`,
+  const logActivity = async (
+    projectId: string,
+    actionType: ActivityType,
+    description: string,
+    metadata?: ActivityLog["metadata"]
+  ) => {
+    try {
+      const newLog = await logActivityMutation.mutateAsync({
         projectId,
-        timestamp: new Date(),
-        user: DEFAULT_USER,
         actionType,
         description,
         metadata,
+      });
+      return {
+        ...newLog,
+        timestamp: new Date(newLog.timestamp),
       };
+    } catch (error) {
+      return null;
+    }
+  };
 
-      setLogs((prev) => [newLog, ...prev]);
-      return newLog;
-    },
-    []
-  );
+  const getProjectLogs = (projectId: string): ActivityLog[] => {
+    // Get from query cache
+    const logs = queryClient.getQueryData<ActivityLog[]>(["activity-logs", projectId]);
+    return logs || [];
+  };
 
-  const getProjectLogs = useCallback(
-    (projectId: string): ActivityLog[] => {
-      return logs
-        .filter((log) => log.projectId === projectId)
-        .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-    },
-    [logs]
-  );
-
-  const getAllLogs = useCallback((): ActivityLog[] => {
-    return [...logs].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-  }, [logs]);
+  const getAllLogs = (): ActivityLog[] => {
+    // Get all logs from cache
+    const projects = queryClient.getQueryData<any[]>(["projects"]);
+    if (!projects) return [];
+    
+    const allLogs: ActivityLog[] = [];
+    projects.forEach((project) => {
+      const logs = getProjectLogs(project.id);
+      allLogs.push(...logs);
+    });
+    
+    return allLogs.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  };
 
   return {
-    logs,
+    logs: projectLogs,
     logActivity,
     getProjectLogs,
     getAllLogs,
   };
 };
-

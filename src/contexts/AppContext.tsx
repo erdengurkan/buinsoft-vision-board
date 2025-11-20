@@ -2,6 +2,7 @@ import React, { createContext, useContext, ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Project } from "@/types";
 import { toast } from "sonner";
+import { useGlobalSSE } from "@/hooks/useGlobalSSE";
 
 interface AppContextType {
   projects: Project[];
@@ -19,6 +20,9 @@ const API_URL = import.meta.env.VITE_API_URL || "/api";
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const queryClient = useQueryClient();
 
+  // Enable real-time updates via SSE
+  useGlobalSSE();
+
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ["projects"],
     queryFn: async () => {
@@ -33,9 +37,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         tasks: project.tasks?.map((task: any) => ({
           ...task,
           deadline: task.deadline ? new Date(task.deadline) : undefined,
+          createdAt: task.createdAt ? new Date(task.createdAt) : new Date(),
           worklogs: task.worklogs?.map((log: any) => ({
             ...log,
-            date: new Date(log.date),
+            startedAt: log.startedAt ? new Date(log.startedAt) : undefined,
+            stoppedAt: log.stoppedAt ? new Date(log.stoppedAt) : undefined,
           })),
         })),
       }));
@@ -63,10 +69,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const updateProjectMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Project> }) => {
+      // Remove tasks from updates - tasks should be managed via /api/tasks endpoints
+      const { tasks, ...projectUpdates } = updates;
+      
       const res = await fetch(`${API_URL}/projects/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updates),
+        body: JSON.stringify(projectUpdates),
       });
       if (!res.ok) throw new Error("Failed to update project");
       return res.json();
@@ -102,6 +111,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateProject = (id: string, updates: Partial<Project>) => {
+    // Note: tasks array is automatically filtered out in updateProjectMutation
+    // Tasks should be managed via /api/tasks endpoints
     updateProjectMutation.mutate({ id, updates });
   };
 

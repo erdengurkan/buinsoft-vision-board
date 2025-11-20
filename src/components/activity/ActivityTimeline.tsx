@@ -1,5 +1,5 @@
 import { ActivityLog } from "@/types";
-import { format } from "date-fns";
+import { format, formatDistanceToNow, isToday, isYesterday, differenceInDays } from "date-fns";
 import {
   Plus,
   Edit,
@@ -69,6 +69,45 @@ const getActivityColor = (actionType: ActivityLog["actionType"]) => {
   }
 };
 
+// Format activity time: "1 min ago", "1h 2min ago", or date if > 1 day
+const formatActivityTime = (timestamp: Date): string => {
+  // Ensure timestamp is a Date object
+  const ts = timestamp instanceof Date ? timestamp : new Date(timestamp);
+  const now = new Date();
+  const diffMs = now.getTime() - ts.getTime();
+  
+  // Handle negative differences (future dates)
+  if (diffMs < 0) {
+    return format(ts, "MMM d, yyyy HH:mm");
+  }
+  
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  
+  if (diffDays === 0) {
+    // Same day - show relative time
+    if (diffMins < 1) {
+      return "just now";
+    } else if (diffMins < 60) {
+      return `${diffMins} min ago`;
+    } else {
+      const hours = diffHours;
+      const mins = diffMins % 60;
+      if (mins === 0) {
+        return `${hours}h ago`;
+      } else {
+        return `${hours}h ${mins}min ago`;
+      }
+    }
+  } else if (diffDays === 1) {
+    return "Yesterday";
+  } else {
+    // More than 1 day - show date
+    return format(ts, "MMM d, yyyy HH:mm");
+  }
+};
+
 export const ActivityTimeline = ({ logs }: ActivityTimelineProps) => {
   if (logs.length === 0) {
     return (
@@ -87,9 +126,9 @@ export const ActivityTimeline = ({ logs }: ActivityTimelineProps) => {
     );
   }
 
-  // Show only last 2 items, rest in accordion
-  const visibleLogs = logs.slice(0, 2);
-  const hiddenLogs = logs.slice(2);
+  // Show only last 1 item initially, rest in accordion (expanded shows at bottom)
+  const visibleLogs = logs.slice(0, 1);
+  const hiddenLogs = logs.slice(1);
 
   return (
     <Card>
@@ -163,7 +202,7 @@ const ActivityItem = ({ log, isLast }: { log: ActivityLog; isLast: boolean }) =>
             </Badge>
           </div>
           <span className="text-xs text-muted-foreground">
-            {format(log.timestamp, "MMM d, yyyy HH:mm")}
+            {formatActivityTime(log.timestamp)}
           </span>
         </div>
 

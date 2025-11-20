@@ -38,11 +38,13 @@ model Task {
   createdAt   DateTime  @default(now())
   deadline    DateTime?
   followUp    Boolean   @default(false)
+  flowDiagram Json?     // Flow diagram data (nodes, edges, viewport)
   
   projectId   String
   project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   worklogs    WorklogEntry[]
+  activeTimer ActiveTimer?
 }
 
 model Label {
@@ -95,3 +97,36 @@ model User {
   name      String?
   createdAt DateTime @default(now())
 }
+
+model Comment {
+  id        String   @id @default(uuid())
+  projectId String
+  taskId    String?
+  text      String
+  user      String
+  timestamp DateTime @default(now())
+  createdAt DateTime @default(now())
+}
+
+model ActivityLog {
+  id          String   @id @default(uuid())
+  projectId   String
+  timestamp   DateTime @default(now())
+  user        String
+  actionType  String
+  description String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+}
+
+model ActiveTimer {
+  id        String   @id @default(uuid())
+  taskId    String   @unique
+  projectId String
+  startedAt DateTime
+  userId    String
+  createdAt DateTime @default(now())
+  
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+

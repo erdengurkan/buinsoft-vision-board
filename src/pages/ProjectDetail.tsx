@@ -17,6 +17,9 @@ import { useWorklog } from "@/hooks/useWorklog";
 import { toast } from "sonner";
 import { useState, useMemo, useEffect } from "react";
 import { format } from "date-fns";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+
+const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 const priorityColors: Record<Priority, string> = {
   Low: "bg-priority-low text-white",
@@ -29,16 +32,60 @@ const ProjectDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { getProjectById, updateProject } = useApp();
-  const { logActivity, getProjectLogs } = useActivityLog();
-  const { addComment, deleteComment, getProjectComments } = useComments();
+  const { getProjectById } = useApp();
+  const project = getProjectById(id!);
+  const { logActivity, getProjectLogs } = useActivityLog(project?.id);
+  const { addComment, deleteComment, getProjectComments } = useComments(project?.id);
   const { getProjectTotalTime } = useWorklog();
+  const queryClient = useQueryClient();
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isTaskDetailModalOpen, setIsTaskDetailModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
   const [viewingTask, setViewingTask] = useState<Task | null>(null);
 
-  const project = getProjectById(id!);
+  // Task mutations - MUST be before conditional returns (Rules of Hooks)
+  const updateTaskMutation = useMutation({
+    mutationFn: async ({ taskId, updates }: { taskId: string; updates: Partial<Task> }) => {
+      const res = await fetch(`${API_URL}/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) throw new Error("Failed to update task");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
+
+  const createTaskMutation = useMutation({
+    mutationFn: async (taskData: Partial<Task> & { projectId: string }) => {
+      const res = await fetch(`${API_URL}/tasks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(taskData),
+      });
+      if (!res.ok) throw new Error("Failed to create task");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
+
+  const deleteTaskMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      const res = await fetch(`${API_URL}/tasks/${taskId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete task");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
 
   // Check if taskId is in URL query params and open task modal
   useEffect(() => {
@@ -53,6 +100,7 @@ const ProjectDetail = () => {
       }
     }
   }, [searchParams, project, setSearchParams]);
+  
   const activityLogs = project ? getProjectLogs(project.id) : [];
   const projectComments = project ? getProjectComments(project.id) : [];
   const projectTotalTime = useMemo(() => {
@@ -76,73 +124,103 @@ const ProjectDetail = () => {
     );
   }
 
-  const handleUpdateTask = (taskId: string, updates: Partial<Task>) => {
+  const handleUpdateTask = async (taskId: string, updates: Partial<Task>, skipActivityLog = false) => {
+    if (!project) return;
+    
     const task = project.tasks.find((t) => t.id === taskId);
     if (!task) return;
 
-    const updatedTasks = project.tasks.map((t) =>
-      t.id === taskId ? { ...t, ...updates } : t
-    );
-    updateProject(project.id, { tasks: updatedTasks });
+    try {
+      // Optimistic update for better UX (especially for drag-drop)
+      queryClient.setQueryData(["projects"], (oldData: any) => {
+        if (!oldData) return oldData;
+        return oldData.map((p: any) => {
+          if (p.id === project.id) {
+            return {
+              ...p,
+              tasks: p.tasks.map((t: any) =>
+                t.id === taskId ? { ...t, ...updates } : t
+              ),
+            };
+          }
+          return p;
+        });
+      });
 
-    // Log activity
-    if (updates.status && updates.status !== task.status) {
-      logActivity(
-        project.id,
-        "task_status_changed",
-        `Task "${task.title}" status changed`,
-        {
-          taskId,
-          oldStatus: task.status,
-          newStatus: updates.status,
+      await updateTaskMutation.mutateAsync({ taskId, updates });
+
+      // Log activity only if not skipped (skip for drag-drop reordering)
+      if (!skipActivityLog) {
+        if (updates.status && updates.status !== task.status) {
+          logActivity(
+            project.id,
+            "task_status_changed",
+            `Task "${task.title}" status changed`,
+            {
+              taskId,
+              oldStatus: task.status,
+              newStatus: updates.status,
+            }
+          );
+        } else if (updates.followUp !== undefined && updates.followUp !== task.followUp) {
+          logActivity(
+            project.id,
+            "follow_up_toggled",
+            `Follow-up ${updates.followUp ? "enabled" : "disabled"} for task "${task.title}"`,
+            { taskId, followUp: updates.followUp }
+          );
+        } else if (updates.deadline && updates.deadline.getTime() !== task.deadline?.getTime()) {
+          logActivity(
+            project.id,
+            "deadline_updated",
+            `Deadline updated for task "${task.title}"`,
+            {
+              taskId,
+              oldValue: task.deadline ? format(task.deadline, "MMM d, yyyy") : "None",
+              newValue: format(updates.deadline, "MMM d, yyyy"),
+            }
+          );
+        } else if (Object.keys(updates).length > 0 && !updates.order) {
+          // Only log if there are actual changes (not just order updates)
+          logActivity(
+            project.id,
+            "task_edited",
+            `Task "${task.title}" updated`,
+            { taskId }
+          );
         }
-      );
-    } else if (updates.followUp !== undefined && updates.followUp !== task.followUp) {
-      logActivity(
-        project.id,
-        "follow_up_toggled",
-        `Follow-up ${updates.followUp ? "enabled" : "disabled"} for task "${task.title}"`,
-        { taskId, followUp: updates.followUp }
-      );
-    } else if (updates.deadline && updates.deadline.getTime() !== task.deadline?.getTime()) {
-      logActivity(
-        project.id,
-        "deadline_updated",
-        `Deadline updated for task "${task.title}"`,
-        {
-          taskId,
-          oldValue: task.deadline ? format(task.deadline, "MMM d, yyyy") : "None",
-          newValue: format(updates.deadline, "MMM d, yyyy"),
-        }
-      );
-    } else {
-      logActivity(
-        project.id,
-        "task_edited",
-        `Task "${task.title}" updated`,
-        { taskId }
-      );
+      }
+
+      // Only show toast for non-order updates
+      if (!skipActivityLog && !updates.order) {
+        toast.success("Task updated");
+      }
+    } catch (error) {
+      toast.error("Failed to update task");
     }
-
-    toast.success("Task updated");
   };
 
-  const handleDeleteTask = (taskId: string) => {
+  const handleDeleteTask = async (taskId: string) => {
+    if (!project) return;
+    
     const task = project.tasks.find((t) => t.id === taskId);
-    const updatedTasks = project.tasks.filter((t) => t.id !== taskId);
-    updateProject(project.id, { tasks: updatedTasks });
+    if (!task) return;
 
-    // Log activity
-    if (task) {
+    try {
+      await deleteTaskMutation.mutateAsync(taskId);
+
+      // Log activity
       logActivity(
         project.id,
         "task_deleted",
         `Task "${task.title}" deleted`,
         { taskId }
       );
-    }
 
-    toast.success("Task deleted");
+      toast.success("Task deleted");
+    } catch (error) {
+      toast.error("Failed to delete task");
+    }
   };
 
   const handleCreateTask = () => {
@@ -150,33 +228,37 @@ const ProjectDetail = () => {
     setIsTaskModalOpen(true);
   };
 
-  const handleSaveTask = (taskData: Partial<Task>) => {
+  const handleSaveTask = async (taskData: Partial<Task>) => {
+    if (!project) return;
+
     if (editingTask) {
-      handleUpdateTask(editingTask.id, taskData);
+      await handleUpdateTask(editingTask.id, taskData);
     } else {
-      const newTask: Task = {
-        id: `task-${Date.now()}`,
-        title: taskData.title || "",
-        description: taskData.description || "",
-        status: taskData.status || "Todo",
-        assignee: taskData.assignee || "",
-        priority: taskData.priority || "Medium",
-        createdAt: new Date(),
-        deadline: taskData.deadline,
-        followUp: taskData.followUp || false,
-      };
-      const updatedTasks = [...project.tasks, newTask];
-      updateProject(project.id, { tasks: updatedTasks });
+      try {
+        const newTask = await createTaskMutation.mutateAsync({
+          projectId: project.id,
+          title: taskData.title || "",
+          description: taskData.description || "",
+          status: taskData.status || "Todo",
+          assignee: taskData.assignee || "",
+          priority: taskData.priority || "Medium",
+          deadline: taskData.deadline,
+          followUp: taskData.followUp || false,
+        });
 
-      // Log activity
-      logActivity(
-        project.id,
-        "task_created",
-        `Task "${newTask.title}" created`,
-        { taskId: newTask.id }
-      );
+        // Log activity
+        logActivity(
+          project.id,
+          "task_created",
+          `Task "${newTask.title}" created`,
+          { taskId: newTask.id }
+        );
 
-      toast.success("Task created");
+        toast.success("Task created");
+        setIsTaskModalOpen(false);
+      } catch (error) {
+        toast.error("Failed to create task");
+      }
     }
   };
 
@@ -221,8 +303,8 @@ const ProjectDetail = () => {
               <div className={cn(
                 "flex items-center gap-1 text-sm font-medium",
                 deadlineStatus === "overdue" ? "text-red-600 dark:text-red-400" :
-                deadlineStatus === "soon" ? "text-orange-600 dark:text-orange-400" :
-                "text-muted-foreground"
+                  deadlineStatus === "soon" ? "text-orange-600 dark:text-orange-400" :
+                    "text-muted-foreground"
               )}>
                 <Calendar className="h-4 w-4" />
                 <span>Deadline: {format(project.deadline, "MMM d, yyyy")}</span>
@@ -270,6 +352,7 @@ const ProjectDetail = () => {
         </div>
         {project.tasks.length > 0 ? (
           <TaskKanban
+            projectId={project.id}
             tasks={project.tasks}
             onUpdateTask={handleUpdateTask}
             onDeleteTask={handleDeleteTask}
@@ -287,34 +370,52 @@ const ProjectDetail = () => {
         )}
       </div>
 
-      <ActivityTimeline logs={activityLogs} />
+      {/* 3 Column Layout: Activity Log, Time Spent, Comments */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Activity Log Column */}
+        <div className="md:col-span-1">
+          <ActivityTimeline logs={activityLogs} />
+        </div>
 
-      <Comments
-        projectId={project.id}
-        comments={projectComments}
-        onAddComment={(text) => {
-          addComment(project.id, undefined, text);
-        }}
-        onDeleteComment={deleteComment}
-        onTaskClick={(taskId) => {
-          const task = project.tasks.find((t) => t.id === taskId);
-          if (task) {
-            setViewingTask(task);
-            setIsTaskDetailModalOpen(true);
-          }
-        }}
-      />
-
-      {projectTotalTime > 0 && (
-        <div className="p-4 rounded-lg border border-border bg-muted/30">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Total Time Spent on Project</span>
-            <span className="text-lg font-bold">
-              {Math.floor(projectTotalTime / 3600)}h {Math.floor((projectTotalTime % 3600) / 60)}m
-            </span>
+        {/* Time Spent Column */}
+        <div className="md:col-span-1">
+          <div className="p-4 rounded-lg border border-border bg-card">
+            <h3 className="text-lg font-semibold mb-2">Time Spent</h3>
+            {projectTotalTime > 0 ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Total Project Time</span>
+                  <span className="text-lg font-bold">
+                    {Math.floor(projectTotalTime / 3600)}h {Math.floor((projectTotalTime % 3600) / 60)}m
+                  </span>
+                </div>
+                {/* Task-level time breakdown could go here */}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No time tracked yet</p>
+            )}
           </div>
         </div>
-      )}
+
+        {/* Comments Column */}
+        <div className="md:col-span-1">
+          <Comments
+            projectId={project.id}
+            comments={projectComments}
+            onAddComment={(text) => {
+              addComment(project.id, undefined, text);
+            }}
+            onDeleteComment={deleteComment}
+            onTaskClick={(taskId) => {
+              const task = project.tasks.find((t) => t.id === taskId);
+              if (task) {
+                setViewingTask(task);
+                setIsTaskDetailModalOpen(true);
+              }
+            }}
+          />
+        </div>
+      </div>
 
       <TaskFormModal
         open={isTaskModalOpen}

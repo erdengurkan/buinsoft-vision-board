@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { sseManager } from '../lib/sse';
 
 const prisma = new PrismaClient();
 
@@ -22,6 +23,14 @@ export const createTodo = async (req: Request, res: Response) => {
                 createdAt: new Date(),
             },
         });
+
+        // Broadcast todo creation to all clients
+        sseManager.broadcast({
+            type: 'todo_created',
+            todoId: todo.id,
+            timestamp: new Date().toISOString(),
+        });
+
         res.json(todo);
     } catch (error) {
         res.status(500).json({ error: 'Failed to create todo' });
@@ -35,6 +44,14 @@ export const updateTodo = async (req: Request, res: Response) => {
             where: { id },
             data: req.body,
         });
+
+        // Broadcast todo update to all clients
+        sseManager.broadcast({
+            type: 'todo_updated',
+            todoId: todo.id,
+            timestamp: new Date().toISOString(),
+        });
+
         res.json(todo);
     } catch (error) {
         res.status(500).json({ error: 'Failed to update todo' });
@@ -47,6 +64,14 @@ export const deleteTodo = async (req: Request, res: Response) => {
         await prisma.todo.delete({
             where: { id },
         });
+
+        // Broadcast todo deletion to all clients
+        sseManager.broadcast({
+            type: 'todo_deleted',
+            todoId: id,
+            timestamp: new Date().toISOString(),
+        });
+
         res.json({ message: 'Todo deleted' });
     } catch (error) {
         res.status(500).json({ error: 'Failed to delete todo' });
