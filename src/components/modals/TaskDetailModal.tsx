@@ -76,6 +76,7 @@ export const TaskDetailModal = ({
 
   const [isEditing, setIsEditing] = useState(false);
   const [deadlinePopoverOpen, setDeadlinePopoverOpen] = useState(false);
+  const [initialFormData, setInitialFormData] = useState<Partial<Task>>({});
   const [formData, setFormData] = useState<Partial<Task>>({
     title: "",
     description: "",
@@ -87,7 +88,7 @@ export const TaskDetailModal = ({
 
   useEffect(() => {
     if (task) {
-      setFormData({
+      const initialData = {
         title: task.title,
         description: task.description || "",
         assignee: task.assignee,
@@ -95,14 +96,19 @@ export const TaskDetailModal = ({
         status: task.status,
         deadline: task.deadline,
         followUp: task.followUp,
-      });
-      setIsEditing(false);
+      };
+      setInitialFormData(initialData);
+      setFormData(initialData);
+      // Open in edit mode when modal opens
+      setIsEditing(true);
     }
   }, [task, open]);
 
   if (!task) return null;
 
-  const taskWorklog = getTaskWorklog(task.id);
+  // Get worklog from task directly (from backend) or from useWorklog hook
+  const taskWorklogFromHook = getTaskWorklog(task.id);
+  const taskWorklog = task.worklog && task.worklog.length > 0 ? task.worklog : taskWorklogFromHook;
   const taskComments = getTaskComments(task.id);
 
   const handleOpenFlow = (e?: React.MouseEvent) => {
@@ -142,28 +148,36 @@ export const TaskDetailModal = ({
   };
 
   const handleCancel = () => {
-    if (task) {
-      setFormData({
-        title: task.title,
-        description: task.description || "",
-        assignee: task.assignee,
-        priority: task.priority,
-        status: task.status,
-        deadline: task.deadline,
-        followUp: task.followUp,
-      });
-    }
+    setFormData(initialFormData);
     setIsEditing(false);
   };
 
+  // Check if form data has changed
+  const hasChanges = () => {
+    if (!task) return false;
+    return (
+      formData.title !== initialFormData.title ||
+      formData.description !== initialFormData.description ||
+      formData.assignee !== initialFormData.assignee ||
+      formData.priority !== initialFormData.priority ||
+      formData.status !== initialFormData.status ||
+      formData.deadline?.getTime() !== initialFormData.deadline?.getTime() ||
+      formData.followUp !== initialFormData.followUp
+    );
+  };
+
   const handleDialogOpenChange = (newOpen: boolean) => {
-    if (!newOpen && isEditing) {
-      // Prevent closing if editing, ask for confirmation
+    if (!newOpen && isEditing && hasChanges()) {
+      // Only ask for confirmation if there are actual changes
       if (window.confirm("You have unsaved changes. Do you want to discard them?")) {
         handleCancel();
         onOpenChange(false);
       }
     } else {
+      // No changes or not editing, close normally
+      if (!newOpen) {
+        handleCancel();
+      }
       onOpenChange(newOpen);
     }
   };

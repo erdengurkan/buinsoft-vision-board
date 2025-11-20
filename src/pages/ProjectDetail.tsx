@@ -450,9 +450,7 @@ const ProjectDetail = () => {
             </Button>
           </div>
           <div className="overflow-y-auto flex-1 p-4">
-            <div className="space-y-3">
-              <h3 className="text-lg font-semibold">Time Spent</h3>
-              {(() => {
+            {(() => {
                     // Collect all worklogs from all tasks
                     const allWorklogs = project.tasks.flatMap(task => {
                       const taskWorklogs = task.worklog || [];
@@ -564,7 +562,6 @@ const ProjectDetail = () => {
                       </div>
                     );
                   })()}
-            </div>
           </div>
         </div>
       )}

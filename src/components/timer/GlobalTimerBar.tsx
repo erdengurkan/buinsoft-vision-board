@@ -7,6 +7,9 @@ import { Square } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+
+const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 const formatTimer = (seconds: number): string => {
   if (seconds < 60) {
@@ -27,6 +30,7 @@ export const GlobalTimerBar = () => {
   const { activeTimer: localTimer, elapsedSeconds: localElapsed, stopTimer, isRunning: localIsRunning } = useTaskTimer();
   const { projects } = useApp();
   const { addWorklogEntry } = useWorklog();
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   
   // Also check backend for active timers (for other users/windows)
@@ -80,15 +84,63 @@ export const GlobalTimerBar = () => {
       : new Date(activeTimer.startedAt);
     const durationMs = stoppedAt.getTime() - startedAt.getTime();
 
+    console.log("🛑 GlobalTimerBar: Stopping timer", {
+      taskId: activeTimer.taskId,
+      durationMs,
+      startedAt: startedAt.toISOString(),
+      stoppedAt: stoppedAt.toISOString(),
+      user: DEFAULT_USER,
+    });
+
     if (durationMs > 0) {
-      addWorklogEntry({
-        taskId: activeTimer.taskId,
-        durationMs,
-        startedAt,
-        stoppedAt,
-        user: DEFAULT_USER,
-      });
-      toast.success(`Timer stopped and logged`);
+      // Save to backend first
+      try {
+        const worklogData = {
+          taskId: activeTimer.taskId,
+          durationMs,
+          startedAt: startedAt.toISOString(),
+          stoppedAt: stoppedAt.toISOString(),
+          user: DEFAULT_USER,
+        };
+        
+        console.log("📤 GlobalTimerBar: Sending worklog to backend", `${API_URL}/worklogs`, worklogData);
+        
+        const response = await fetch(`${API_URL}/worklogs`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(worklogData),
+        });
+
+        console.log("📥 GlobalTimerBar: Response status", response.status, response.statusText);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("❌ GlobalTimerBar: Response error", errorText);
+          throw new Error(`Failed to save worklog: ${response.status} ${response.statusText}`);
+        }
+
+        const savedWorklog = await response.json();
+        console.log("✅ GlobalTimerBar: Worklog saved", savedWorklog);
+
+        // Also call addWorklogEntry for local state update
+        addWorklogEntry({
+          taskId: activeTimer.taskId,
+          durationMs,
+          startedAt,
+          stoppedAt,
+          user: DEFAULT_USER,
+        });
+
+        // Invalidate queries to refresh data
+        queryClient.invalidateQueries({ queryKey: ['projects'] });
+        
+        toast.success(`Timer stopped and logged`);
+      } catch (error) {
+        console.error("❌ GlobalTimerBar: Failed to save worklog:", error);
+        toast.error("Failed to save worklog to server");
+      }
+    } else {
+      console.warn("⚠️ GlobalTimerBar: Duration is 0 or negative, skipping worklog save");
     }
 
     // Stop timer (will sync with backend via TaskTimerContext)
