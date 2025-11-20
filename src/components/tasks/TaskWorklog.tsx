@@ -19,6 +19,8 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { useTaskTimer } from "@/contexts/TaskTimerContext";
 import { useApp } from "@/contexts/AppContext";
+import { useActiveTimers } from "@/hooks/useActiveTimers";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface TaskWorklogProps {
   taskId: string;
@@ -29,7 +31,8 @@ interface TaskWorklogProps {
   compact?: boolean;
 }
 
-const DEFAULT_USER = "Buinsoft User";
+const DEFAULT_USER = "Emre Kılınç"; // TODO: Get from auth context
+const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 const formatDuration = (seconds: number): string => {
   if (seconds < 60) {
@@ -58,19 +61,29 @@ export const TaskWorklog = ({
   onDeleteWorklog,
   compact = false,
 }: TaskWorklogProps) => {
-  const { activeTimer, elapsedSeconds, startTimer, stopTimer, isRunning: globalTimerRunning } = useTaskTimer();
+  const { activeTimer, elapsedSeconds, startTimer, stopTimer, isRunning: localTimerRunning } = useTaskTimer();
   const { projects } = useApp();
+  const queryClient = useQueryClient();
+  const { data: backendTimers = [] } = useActiveTimers(projectId);
   const [description, setDescription] = useState("");
   const [showWarning, setShowWarning] = useState(false);
   const [pendingTaskId, setPendingTaskId] = useState<string | null>(null);
 
-  const isThisTaskActive = activeTimer?.taskId === taskId;
-  const isOtherTaskActive = globalTimerRunning && !isThisTaskActive;
+  // Check for active timers from backend (for current user)
+  const backendActiveTimer = backendTimers.find(t => t.userId === DEFAULT_USER);
+  const isThisTaskActive = activeTimer?.taskId === taskId || backendActiveTimer?.taskId === taskId;
+  const isOtherTaskActive = (localTimerRunning && !isThisTaskActive) || (backendActiveTimer && backendActiveTimer.taskId !== taskId);
 
   const handleStart = () => {
     if (isOtherTaskActive) {
-      const activeProject = projects.find((p) => p.id === activeTimer?.projectId);
-      const activeTask = activeProject?.tasks.find((t) => t.id === activeTimer?.taskId);
+      const activeTimerToShow = activeTimer || (backendActiveTimer ? {
+        taskId: backendActiveTimer.taskId,
+        projectId: backendActiveTimer.projectId,
+        startedAt: new Date(backendActiveTimer.startedAt).getTime(),
+      } : null);
+      
+      const activeProject = projects.find((p) => p.id === activeTimerToShow?.projectId);
+      const activeTask = activeProject?.tasks.find((t) => t.id === activeTimerToShow?.taskId);
       setPendingTaskId(taskId);
       setShowWarning(true);
       return;
@@ -80,29 +93,66 @@ export const TaskWorklog = ({
     toast.success("Timer started");
   };
 
-  const handleStop = () => {
-    if (!activeTimer || activeTimer.taskId !== taskId) {
-      // Timer might have been stopped from GlobalTimerBar
+  const handleStop = async () => {
+    const timerToStop = activeTimer || (backendActiveTimer ? {
+      taskId: backendActiveTimer.taskId,
+      projectId: backendActiveTimer.projectId,
+      startedAt: new Date(backendActiveTimer.startedAt).getTime(),
+    } : null);
+
+    if (!timerToStop || timerToStop.taskId !== taskId) {
+      // Timer might have been stopped from GlobalTimerBar or doesn't belong to this task
       return;
     }
 
     const stoppedAt = new Date();
-    const startedAt = new Date(activeTimer.startedAt);
+    const startedAt = new Date(timerToStop.startedAt);
     const durationMs = stoppedAt.getTime() - startedAt.getTime();
 
     if (durationMs > 0) {
-      onAddWorklog({
-        taskId,
-        durationMs,
-        startedAt,
-        stoppedAt,
-        user: DEFAULT_USER,
-        description: description.trim() || undefined,
-      });
-      toast.success(`Logged ${formatDurationFromMs(durationMs)}`);
+      // Save to backend first
+      try {
+        const response = await fetch(`${API_URL}/worklogs`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            taskId,
+            durationMs,
+            startedAt: startedAt.toISOString(),
+            stoppedAt: stoppedAt.toISOString(),
+            user: DEFAULT_USER,
+            description: description.trim() || undefined,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to save worklog");
+        }
+
+        const savedWorklog = await response.json();
+        
+        // Also call onAddWorklog for local state update
+        onAddWorklog({
+          taskId,
+          durationMs,
+          startedAt,
+          stoppedAt,
+          user: DEFAULT_USER,
+          description: description.trim() || undefined,
+        });
+
+        // Invalidate queries to refresh data
+        queryClient.invalidateQueries({ queryKey: ['projects'] });
+        
+        toast.success(`Logged ${formatDurationFromMs(durationMs)}`);
+      } catch (error) {
+        console.error("Failed to save worklog:", error);
+        toast.error("Failed to save worklog to server");
+      }
     }
 
-    stopTimer();
+    // Stop timer (will sync with backend via TaskTimerContext)
+    await stopTimer();
     setDescription("");
   };
 
@@ -305,8 +355,14 @@ export const TaskWorklog = ({
             </AlertDialogTitle>
             <AlertDialogDescription>
               {(() => {
-                const activeProject = projects.find((p) => p.id === activeTimer?.projectId);
-                const activeTask = activeProject?.tasks.find((t) => t.id === activeTimer?.taskId);
+                const activeTimerToShow = activeTimer || (backendActiveTimer ? {
+                  taskId: backendActiveTimer.taskId,
+                  projectId: backendActiveTimer.projectId,
+                  startedAt: new Date(backendActiveTimer.startedAt).getTime(),
+                } : null);
+                
+                const activeProject = projects.find((p) => p.id === activeTimerToShow?.projectId);
+                const activeTask = activeProject?.tasks.find((t) => t.id === activeTimerToShow?.taskId);
                 return `You are currently tracking time on "${activeTask?.title || "Unknown Task"}" in project "${activeProject?.title || "Unknown Project"}". Stop it first or switch to this task.`;
               })()}
             </AlertDialogDescription>

@@ -38,10 +38,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           ...task,
           deadline: task.deadline ? new Date(task.deadline) : undefined,
           createdAt: task.createdAt ? new Date(task.createdAt) : new Date(),
-          worklogs: task.worklogs?.map((log: any) => ({
+          worklog: task.worklog?.map((log: any) => ({
             ...log,
             startedAt: log.startedAt ? new Date(log.startedAt) : undefined,
             stoppedAt: log.stoppedAt ? new Date(log.stoppedAt) : undefined,
+            user: log.user || "Unknown",
+            durationMs: log.durationMs || 0,
           })),
         })),
       }));

@@ -7,6 +7,7 @@ import * as timerController from '../controllers/timerController';
 import * as taskController from '../controllers/taskController';
 import * as commentController from '../controllers/commentController';
 import * as activityLogController from '../controllers/activityLogController';
+import * as worklogController from '../controllers/worklogController';
 import { validate } from '../middleware/validation';
 import { createTaskSchema, updateTaskSchema, reorderTasksSchema } from '../lib/validation';
 
@@ -52,5 +53,9 @@ router.delete('/comments/:id', commentController.deleteComment);
 // Activity Logs
 router.get('/activity-logs', activityLogController.getProjectActivityLogs);
 router.post('/activity-logs', activityLogController.createActivityLog);
+
+// Worklogs
+router.post('/worklogs', worklogController.createWorklog);
+router.delete('/worklogs/:id', worklogController.deleteWorklog);
 
 export default router;

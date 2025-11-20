@@ -353,8 +353,8 @@ const ProjectDetail = () => {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Compact Header - Single Line */}
-      <div className="flex items-center justify-between gap-3 shrink-0 px-6 pt-6 pb-4">
+      {/* Back Button and Title */}
+      <div className="flex items-center gap-3 shrink-0 px-6 pt-2 pb-2">
         <Button
           variant="ghost"
           size="sm"
@@ -363,77 +363,7 @@ const ProjectDetail = () => {
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <h1 className="text-xl font-bold text-foreground truncate">
-            {project.title}
-          </h1>
-          <span className="text-muted-foreground">•</span>
-          <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-            <User className="h-3 w-3" />
-            <span className="truncate">{project.assignee}</span>
-          </div>
-          <span className="text-muted-foreground">•</span>
-          <span className="text-xs text-muted-foreground truncate">{project.client}</span>
-          <span className="text-muted-foreground">•</span>
-          <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-            <Calendar className="h-3 w-3" />
-            <span className="truncate">
-              {format(project.startDate, "MMM d")} - {format(project.endDate, "MMM d")}
-            </span>
-          </div>
-          {project.deadline && (
-            <>
-              <span className="text-muted-foreground">•</span>
-              <div className={cn(
-                "flex items-center gap-1 text-xs font-medium shrink-0",
-                deadlineStatus === "overdue" ? "text-red-600 dark:text-red-400" :
-                  deadlineStatus === "soon" ? "text-orange-600 dark:text-orange-400" :
-                    "text-muted-foreground"
-              )}>
-                <Calendar className="h-3 w-3" />
-                <span>{format(project.deadline, "MMM d")}</span>
-              </div>
-            </>
-          )}
-          {needsFollowUp && (
-            <>
-              <span className="text-muted-foreground">•</span>
-              <div className="flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400 font-medium shrink-0">
-                <AlertCircle className="h-3 w-3" />
-                <span>Follow-up</span>
-              </div>
-            </>
-          )}
-          {project.labels.length > 0 && (
-            <>
-              <span className="text-muted-foreground">•</span>
-              <div className="flex items-center gap-1 shrink-0">
-                {project.labels.slice(0, 2).map((label) => (
-                  <Badge
-                    key={label.id}
-                    variant="secondary"
-                    className={cn("text-xs px-1.5 py-0", label.color, "text-white")}
-                  >
-                    {label.name}
-                  </Badge>
-                ))}
-                {project.labels.length > 2 && (
-                  <span className="text-xs text-muted-foreground">+{project.labels.length - 2}</span>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-        
-        <div className="flex items-center gap-2 shrink-0">
-          <Badge className={cn("text-xs px-2 py-0", priorityColors[project.priority])}>
-            {project.priority}
-          </Badge>
-          <Badge variant="outline" className="text-xs px-2 py-0">
-            {project.status}
-          </Badge>
-        </div>
+        <h2 className="text-lg font-semibold">Tasks</h2>
       </div>
 
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -525,7 +455,7 @@ const ProjectDetail = () => {
               {(() => {
                     // Collect all worklogs from all tasks
                     const allWorklogs = project.tasks.flatMap(task => {
-                      const taskWorklogs = task.worklogs || [];
+                      const taskWorklogs = task.worklog || [];
                       return taskWorklogs.map(log => ({ 
                         ...log, 
                         taskId: task.id, 
@@ -682,38 +612,40 @@ const ProjectDetail = () => {
         </div>
       )}
 
-      {/* Floating Action Buttons */}
-      <div className="fixed bottom-4 right-4 z-40 flex flex-col gap-2">
-        {!showActivityLog && (
-          <Button
-            onClick={() => setShowActivityLog(true)}
-            className="rounded-full shadow-lg h-12 w-12 p-0 bg-primary hover:bg-primary/90"
-            size="lg"
-            title="Activity Log"
-          >
-            <Activity className="h-5 w-5" />
-          </Button>
-        )}
-        {!showTimeSpent && (
-          <Button
-            onClick={() => setShowTimeSpent(true)}
-            className="rounded-full shadow-lg h-12 w-12 p-0 bg-primary hover:bg-primary/90"
-            size="lg"
-            title="Time Spent"
-          >
-            <Clock className="h-5 w-5" />
-          </Button>
-        )}
-        {!showComments && (
-          <Button
-            onClick={() => setShowComments(true)}
-            className="rounded-full shadow-lg h-12 w-12 p-0 bg-primary hover:bg-primary/90"
-            size="lg"
-            title="Comments"
-          >
-            <MessageSquare className="h-5 w-5" />
-          </Button>
-        )}
+      {/* Floating Action Buttons - Single Compact Bar */}
+      <div className="fixed bottom-4 right-4 z-40">
+        <div className="flex items-center gap-1 bg-card border-2 border-primary/20 rounded-lg shadow-xl p-1.5 backdrop-blur-sm">
+          {!showActivityLog && (
+            <Button
+              onClick={() => setShowActivityLog(true)}
+              className="rounded-md h-10 w-10 p-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all"
+              size="sm"
+              title="Activity Log"
+            >
+              <Activity className="h-5 w-5" />
+            </Button>
+          )}
+          {!showTimeSpent && (
+            <Button
+              onClick={() => setShowTimeSpent(true)}
+              className="rounded-md h-10 w-10 p-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all"
+              size="sm"
+              title="Time Spent"
+            >
+              <Clock className="h-5 w-5" />
+            </Button>
+          )}
+          {!showComments && (
+            <Button
+              onClick={() => setShowComments(true)}
+              className="rounded-md h-10 w-10 p-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all"
+              size="sm"
+              title="Comments"
+            >
+              <MessageSquare className="h-5 w-5" />
+            </Button>
+          )}
+        </div>
       </div>
 
       <TaskFormModal
