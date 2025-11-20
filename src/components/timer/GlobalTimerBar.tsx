@@ -1,10 +1,12 @@
 import { useTaskTimer } from "@/contexts/TaskTimerContext";
 import { useApp } from "@/contexts/AppContext";
 import { useWorklog } from "@/hooks/useWorklog";
+import { useActiveTimers } from "@/hooks/useActiveTimers";
 import { Button } from "@/components/ui/button";
 import { Square } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 
 const formatTimer = (seconds: number): string => {
   if (seconds < 60) {
@@ -22,10 +24,47 @@ const formatTimer = (seconds: number): string => {
 };
 
 export const GlobalTimerBar = () => {
-  const { activeTimer, elapsedSeconds, stopTimer, isRunning } = useTaskTimer();
+  const { activeTimer: localTimer, elapsedSeconds: localElapsed, stopTimer, isRunning: localIsRunning } = useTaskTimer();
   const { projects } = useApp();
   const { addWorklogEntry } = useWorklog();
   const navigate = useNavigate();
+  
+  // Also check backend for active timers (for other users/windows)
+  const { data: backendTimers = [] } = useActiveTimers();
+  const DEFAULT_USER = "Emre Kılınç"; // TODO: Get from auth context
+  
+  // Find active timer - prefer local, fallback to backend
+  const backendTimer = backendTimers.find(t => t.userId === DEFAULT_USER);
+  const activeTimer = localTimer || (backendTimer ? {
+    taskId: backendTimer.taskId,
+    projectId: backendTimer.projectId,
+    startedAt: new Date(backendTimer.startedAt).getTime(),
+  } : null);
+  
+  const [elapsedSeconds, setElapsedSeconds] = useState(localElapsed);
+  
+  // Calculate elapsed time - use local if available, otherwise calculate from backend timer
+  useEffect(() => {
+    if (localTimer) {
+      // Use local elapsed time if local timer exists
+      setElapsedSeconds(localElapsed);
+    } else if (backendTimer) {
+      // Calculate from backend timer
+      const updateElapsed = () => {
+        const startedAt = new Date(backendTimer.startedAt).getTime();
+        const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+        setElapsedSeconds(elapsed);
+      };
+      
+      updateElapsed();
+      const interval = setInterval(updateElapsed, 1000);
+      return () => clearInterval(interval);
+    } else {
+      setElapsedSeconds(0);
+    }
+  }, [localTimer, localElapsed, backendTimer]);
+  
+  const isRunning = !!activeTimer;
 
   if (!isRunning || !activeTimer) {
     return null;
@@ -34,9 +73,11 @@ export const GlobalTimerBar = () => {
   const project = projects.find((p) => p.id === activeTimer.projectId);
   const task = project?.tasks.find((t) => t.id === activeTimer.taskId);
 
-  const handleStop = () => {
+  const handleStop = async () => {
     const stoppedAt = new Date();
-    const startedAt = new Date(activeTimer.startedAt);
+    const startedAt = typeof activeTimer.startedAt === 'number' 
+      ? new Date(activeTimer.startedAt) 
+      : new Date(activeTimer.startedAt);
     const durationMs = stoppedAt.getTime() - startedAt.getTime();
 
     if (durationMs > 0) {
@@ -45,12 +86,13 @@ export const GlobalTimerBar = () => {
         durationMs,
         startedAt,
         stoppedAt,
-        user: "Buinsoft User",
+        user: DEFAULT_USER,
       });
       toast.success(`Timer stopped and logged`);
     }
 
-    stopTimer();
+    // Stop timer (will sync with backend via TaskTimerContext)
+    await stopTimer();
   };
 
   return (

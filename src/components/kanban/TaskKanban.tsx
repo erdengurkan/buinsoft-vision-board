@@ -94,13 +94,13 @@ export const TaskKanban = ({
       // Moving to a different status column (dropped on empty area of column)
       const newStatus = overId as string;
       if (task.status !== newStatus) {
-        // Only log activity for status change, not for order updates
+        // Simple status change - no reordering needed
         onUpdateTask(taskId, { status: newStatus, order: 0 }, false);
       }
     } else if (overTask) {
-      // Dropping on another task - check if same status or different
+      // Dropping on another task
       if (task.status === overTask.status) {
-        // Reordering within the same status - skip activity log for order-only updates
+        // Reordering within the same status
         const statusTasks = tasks
           .filter((t) => t.status === task.status)
           .sort((a, b) => {
@@ -116,23 +116,20 @@ export const TaskKanban = ({
           // Use arrayMove to get the correct reordered array
           const reordered = arrayMove(statusTasks, oldIndex, newIndex);
 
-          // Batch update order for all tasks - skip activity log
-          // Update all orders in a single batch to avoid multiple API calls
-          const updates = reordered.map((t, index) => ({
-            taskId: t.id,
-            updates: { order: index },
-            skipLog: true,
-          }));
-
-          // Apply updates sequentially but skip activity logs
-          for (const update of updates) {
-            onUpdateTask(update.taskId, update.updates, true);
-          }
+          // Update orders for affected tasks only (optimize: don't update all)
+          reordered.forEach((t, index) => {
+            const originalIndex = statusTasks.findIndex((orig) => orig.id === t.id);
+            if (originalIndex !== index) {
+              // Only update if position actually changed
+              onUpdateTask(t.id, { order: index }, true);
+            }
+          });
         }
       } else {
         // Moving to different status (dropped on task in different column)
+        const newStatus = overTask.status;
         const newStatusTasks = tasks
-          .filter((t) => t.status === overTask.status)
+          .filter((t) => t.status === newStatus)
           .sort((a, b) => {
             const aOrder = (a as any).order ?? 0;
             const bOrder = (b as any).order ?? 0;
@@ -142,20 +139,19 @@ export const TaskKanban = ({
         const targetIndex = newStatusTasks.findIndex((t) => t.id === overId);
 
         if (targetIndex !== -1) {
-          // Move task to new status first - log activity for status change
-          onUpdateTask(taskId, { status: overTask.status }, false);
+          // First, update the dragged task's status and order
+          onUpdateTask(taskId, { status: newStatus, order: targetIndex }, false);
 
-          // Then reorder: insert dragged task at target position
-          // All tasks from targetIndex onwards get their order incremented
-          // Skip activity log for order-only updates
+          // Then, update orders for tasks that come after the target position
+          // Only update tasks that need their order changed
           newStatusTasks.forEach((t, index) => {
-            if (index >= targetIndex) {
+            if (index >= targetIndex && t.id !== taskId) {
               onUpdateTask(t.id, { order: index + 1 }, true);
             }
           });
-
-          // Set dragged task's order to targetIndex - skip activity log
-          onUpdateTask(taskId, { order: targetIndex }, true);
+        } else {
+          // Fallback: just change status if target not found
+          onUpdateTask(taskId, { status: newStatus, order: 0 }, false);
         }
       }
     }
