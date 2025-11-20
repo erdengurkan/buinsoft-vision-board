@@ -25,11 +25,13 @@ export const useGlobalSSE = () => {
           if (data.type === 'project_updated') {
             console.log('✅ Project update received, refetching...', data.projectId);
             // Invalidate and refetch projects when update is received
-            // This will include comments, activity logs, worklogs, tasks, etc.
-            queryClient.invalidateQueries({ queryKey: ['projects'] });
-            queryClient.refetchQueries({ queryKey: ['projects'] }).then(() => {
-              console.log('✅ Projects refetched after SSE update');
-            });
+            // Use a delay to avoid race conditions with optimistic updates
+            setTimeout(() => {
+              queryClient.invalidateQueries({ queryKey: ['projects'] });
+              queryClient.refetchQueries({ queryKey: ['projects'] }).then(() => {
+                console.log('✅ Projects refetched after SSE update');
+              });
+            }, 300);
             // Also refetch comments and activity logs for this project
             if (data.projectId) {
               queryClient.invalidateQueries({ queryKey: ['comments', 'project', data.projectId] });

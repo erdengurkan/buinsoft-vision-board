@@ -34,9 +34,18 @@ export const createTaskSchema = z.object({
   order: z.number().int().optional(),
 });
 
-export const updateTaskSchema = createTaskSchema.omit({ projectId: true }).partial().extend({
-  flowDiagram: z.any().optional(), // Allow flowDiagram JSON object
-});
+export const updateTaskSchema = createTaskSchema
+  .omit({ projectId: true })
+  .partial()
+  .extend({
+    flowDiagram: z.any().optional(), // Allow flowDiagram JSON object
+    // CRITICAL: Remove default values for optional fields to prevent unintended resets
+    status: z.string().optional(), // No default - preserve existing status if not provided
+    assignee: z.string().max(100).optional(), // No default
+    priority: z.enum(['Low', 'Medium', 'High', 'Critical']).optional(), // No default
+    description: z.string().optional(), // No default
+    followUp: z.boolean().optional(), // No default
+  });
 
 export const reorderTasksSchema = z.object({
   projectId: z.string().uuid('Invalid project ID'),

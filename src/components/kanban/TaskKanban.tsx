@@ -19,6 +19,7 @@ interface TaskKanbanProps {
   projectId: string;
   tasks: Task[];
   onUpdateTask: (taskId: string, updates: Partial<Task>, skipActivityLog?: boolean) => void;
+  onReorderTasks?: (taskOrders: Array<{ id: string; order: number }>) => void;
   onDeleteTask: (taskId: string) => void;
   onViewTaskDetails?: (task: Task) => void;
 }
@@ -27,6 +28,7 @@ export const TaskKanban = ({
   projectId,
   tasks,
   onUpdateTask,
+  onReorderTasks,
   onDeleteTask,
   onViewTaskDetails,
 }: TaskKanbanProps) => {
@@ -94,8 +96,14 @@ export const TaskKanban = ({
       // Moving to a different status column (dropped on empty area of column)
       const newStatus = overId as string;
       if (task.status !== newStatus) {
-        // Simple status change - no reordering needed
-        onUpdateTask(taskId, { status: newStatus, order: 0 }, false);
+        // Calculate order for the new status (append to end)
+        const newStatusTasks = tasks.filter((t) => t.status === newStatus);
+        const maxOrder = newStatusTasks.length > 0 
+          ? Math.max(...newStatusTasks.map((t) => (t as any).order ?? 0))
+          : -1;
+        const newOrder = maxOrder + 1;
+        
+        onUpdateTask(taskId, { status: newStatus, order: newOrder }, false);
       }
     } else if (overTask) {
       // Dropping on another task
@@ -116,14 +124,34 @@ export const TaskKanban = ({
           // Use arrayMove to get the correct reordered array
           const reordered = arrayMove(statusTasks, oldIndex, newIndex);
 
-          // Update orders for affected tasks only (optimize: don't update all)
-          reordered.forEach((t, index) => {
-            const originalIndex = statusTasks.findIndex((orig) => orig.id === t.id);
-            if (originalIndex !== index) {
-              // Only update if position actually changed
-              onUpdateTask(t.id, { order: index }, true);
-            }
-          });
+          // Use batch reorder endpoint if available (prevents race conditions)
+          if (onReorderTasks) {
+            const taskOrders = reordered.map((t, index) => ({
+              id: t.id,
+              order: index,
+            }));
+            onReorderTasks(taskOrders);
+          } else {
+            // Fallback: individual updates
+            const updates: Array<{ taskId: string; order: number }> = [];
+            reordered.forEach((t, index) => {
+              const originalIndex = statusTasks.findIndex((orig) => orig.id === t.id);
+              if (originalIndex !== index) {
+                updates.push({ taskId: t.id, order: index });
+              }
+            });
+
+            // Apply updates sequentially with small delays to prevent race conditions
+            updates.forEach((update, idx) => {
+              setTimeout(() => {
+                // CRITICAL: Explicitly include status to prevent backend from resetting it
+                onUpdateTask(update.taskId, { 
+                  order: update.order,
+                  status: task.status, // Use the current task's status (same for all in this status)
+                }, true);
+              }, idx * 50); // Small delay between updates
+            });
+          }
         }
       } else {
         // Moving to different status (dropped on task in different column)
@@ -143,15 +171,34 @@ export const TaskKanban = ({
           onUpdateTask(taskId, { status: newStatus, order: targetIndex }, false);
 
           // Then, update orders for tasks that come after the target position
-          // Only update tasks that need their order changed
+          // Batch updates to prevent race conditions
+          const updates: Array<{ taskId: string; order: number }> = [];
           newStatusTasks.forEach((t, index) => {
             if (index >= targetIndex && t.id !== taskId) {
-              onUpdateTask(t.id, { order: index + 1 }, true);
+              updates.push({ taskId: t.id, order: index + 1 });
             }
+          });
+
+          // Apply updates sequentially with small delays
+          updates.forEach((update, idx) => {
+            setTimeout(() => {
+              // CRITICAL: Always include status to prevent it from being lost
+              onUpdateTask(update.taskId, { 
+                order: update.order,
+                status: newStatus, // All tasks in this status have the same status
+              }, true);
+            }, (idx + 1) * 50); // Delay after the dragged task update
           });
         } else {
           // Fallback: just change status if target not found
-          onUpdateTask(taskId, { status: newStatus, order: 0 }, false);
+          // Calculate order for the new status (append to end)
+          const newStatusTasks = tasks.filter((t) => t.status === newStatus);
+          const maxOrder = newStatusTasks.length > 0 
+            ? Math.max(...newStatusTasks.map((t) => (t as any).order ?? 0))
+            : -1;
+          const newOrder = maxOrder + 1;
+          
+          onUpdateTask(taskId, { status: newStatus, order: newOrder }, false);
         }
       }
     }

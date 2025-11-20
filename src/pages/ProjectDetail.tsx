@@ -54,8 +54,35 @@ const ProjectDetail = () => {
       if (!res.ok) throw new Error("Failed to update task");
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    onSuccess: (data, variables) => {
+      // Update with server response to ensure consistency
+      // CRITICAL: Merge server response to preserve all fields
+      if (project) {
+        queryClient.setQueryData(["projects"], (oldData: any) => {
+          if (!oldData) return oldData;
+          return oldData.map((p: any) => {
+            if (p.id === project.id) {
+              return {
+                ...p,
+                tasks: p.tasks.map((t: any) => {
+                  if (t.id === variables.taskId) {
+                    // Merge server response with existing task to preserve all fields
+                    // This ensures status and other fields aren't lost
+                    return { ...t, ...data };
+                  }
+                  return t;
+                }),
+              };
+            }
+            return p;
+          });
+        });
+      }
+      
+      // Invalidate after a delay to catch any SSE updates
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["projects"] });
+      }, 500);
     },
   });
 
@@ -80,6 +107,21 @@ const ProjectDetail = () => {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Failed to delete task");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
+
+  const reorderTasksMutation = useMutation({
+    mutationFn: async ({ projectId, taskOrders }: { projectId: string; taskOrders: Array<{ id: string; order: number }> }) => {
+      const res = await fetch(`${API_URL}/tasks/reorder`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, taskOrders }),
+      });
+      if (!res.ok) throw new Error("Failed to reorder tasks");
       return res.json();
     },
     onSuccess: () => {
@@ -132,15 +174,25 @@ const ProjectDetail = () => {
 
     try {
       // Optimistic update for better UX (especially for drag-drop)
+      // CRITICAL: Always preserve status if not explicitly being changed
       queryClient.setQueryData(["projects"], (oldData: any) => {
         if (!oldData) return oldData;
         return oldData.map((p: any) => {
           if (p.id === project.id) {
             return {
               ...p,
-              tasks: p.tasks.map((t: any) =>
-                t.id === taskId ? { ...t, ...updates } : t
-              ),
+              tasks: p.tasks.map((t: any) => {
+                if (t.id === taskId) {
+                  // Merge updates with existing task data
+                  const merged = { ...t, ...updates };
+                  // CRITICAL: If status is not in updates, preserve existing status
+                  if (!updates.hasOwnProperty('status') && t.status) {
+                    merged.status = t.status;
+                  }
+                  return merged;
+                }
+                return t;
+              }),
             };
           }
           return p;
@@ -355,6 +407,11 @@ const ProjectDetail = () => {
             projectId={project.id}
             tasks={project.tasks}
             onUpdateTask={handleUpdateTask}
+            onReorderTasks={(taskOrders) => {
+              if (project) {
+                reorderTasksMutation.mutate({ projectId: project.id, taskOrders });
+              }
+            }}
             onDeleteTask={handleDeleteTask}
             onViewTaskDetails={(task) => {
               setViewingTask(task);

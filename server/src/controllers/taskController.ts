@@ -189,11 +189,12 @@ export const reorderTasks = async (req: Request, res: Response) => {
     const { projectId, taskOrders } = reorderTasksSchema.parse(req.body);
 
     // Update all tasks in a transaction
+    // CRITICAL: Only update order field, preserve all other fields (especially status)
     await prisma.$transaction(
       taskOrders.map(({ id, order }: { id: string; order: number }) =>
         prisma.task.update({
           where: { id },
-          data: { order },
+          data: { order }, // Only update order, status and other fields are preserved automatically
         })
       )
     );
