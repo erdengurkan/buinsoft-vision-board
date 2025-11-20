@@ -122,12 +122,12 @@ export const Header = () => {
                   <Badge
                     variant="outline"
                     className={cn(
-                      "flex items-center gap-1 text-xs font-medium shrink-0 group-hover:shadow-md transition-all",
+                      "flex items-center gap-1.5 text-xs font-semibold shrink-0 group-hover:shadow-lg transition-all",
                       deadlineStatus === "overdue" 
-                        ? "bg-red-900/30 border-red-500/50 text-red-200 hover:bg-red-900/40" 
+                        ? "bg-red-500/90 border-red-600 text-white hover:bg-red-600" 
                         : deadlineStatus === "soon" 
-                          ? "bg-orange-900/30 border-orange-500/50 text-orange-200 hover:bg-orange-900/40 animate-pulse"
-                          : "bg-green-900/30 border-green-500/50 text-green-200 hover:bg-green-900/40"
+                          ? "bg-orange-500/90 border-orange-600 text-white hover:bg-orange-600 animate-pulse"
+                          : "bg-green-600 border-green-700 text-white hover:bg-green-700"
                     )}
                   >
                     {deadlineStatus === "overdue" ? (
@@ -200,16 +200,6 @@ export const Header = () => {
 
           <span className="text-muted-foreground">•</span>
 
-          {/* Priority Badge */}
-          <Badge className={cn("text-xs shrink-0 group-hover:shadow-md transition-shadow", 
-            project.priority === "Low" ? "bg-priority-low hover:bg-priority-low" :
-            project.priority === "Medium" ? "bg-priority-medium hover:bg-priority-medium" :
-            project.priority === "High" ? "bg-priority-high hover:bg-priority-high" :
-            "bg-red-900 hover:bg-red-900"
-          )}>
-            {project.priority}
-          </Badge>
-
           {/* Status Badge */}
           <Badge 
             variant="outline" 
@@ -222,39 +212,6 @@ export const Header = () => {
           >
             {project.status}
           </Badge>
-
-          {/* Labels */}
-          {project.labels.length > 0 && (
-            <>
-              <span className="text-muted-foreground">•</span>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex gap-1 shrink-0">
-                    {project.labels.slice(0, 2).map((label) => (
-                      <Badge
-                        key={label.id}
-                        variant="secondary"
-                        className={cn("text-xs px-2 py-0 group-hover:shadow-md transition-shadow", label.color, "text-white")}
-                      >
-                        {label.name}
-                      </Badge>
-                    ))}
-                    {project.labels.length > 2 && (
-                      <span className="text-xs text-muted-foreground">+{project.labels.length - 2}</span>
-                    )}
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium">Labels</p>
-                    {project.labels.map(label => (
-                      <p key={label.id} className="text-xs text-muted-foreground">• {label.name}</p>
-                    ))}
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            </>
-          )}
         </div>
       ) : (
         <div className="flex-1 flex justify-center">

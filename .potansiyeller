@@ -1,0 +1,64 @@
+2. 📋 Trello Tarzı Gelişmiş Task Edit - PLANLAMA
+Trello'daki gibi zengin özellikler eklemek orta zorlukta ama çok güzel olur! İşte plan:
+🎯 Eklenecek Özellikler:
+✅ Zaten Var Olanlar:
+✓ Title & Description
+✓ Status (Kanban kolonları)
+✓ Priority (High/Medium/Low)
+✓ Assignee
+✓ Deadline
+✓ Labels
+✓ Comments
+✓ Activity Log
+✓ Time Tracking (Timer)
+🆕 Eklenecekler (Trello tarzı):
+📎 Attachments (Dosya ekleme)
+Drag & drop dosya yükleme
+Image preview
+Dosya listesi ve download
+✅ Checklist (Alt görevler)
+Checklist item ekleme/silme
+Checkbox ile tamamlama
+Progress bar (3/5 completed)
+📅 Dates (Gelişmiş tarih yönetimi)
+Start date & Due date
+Date picker
+Reminder/notification özelliği
+👥 Members (Çoklu atama)
+Birden fazla kişi atama
+Avatar listesi
+🏷️ Custom Fields (Özel alanlar)
+Text, Number, Dropdown fields
+Kullanıcı tanımlı alanlar
+💻 Teknik Komplekslik:
+Özellik	Zorluk	Süre	Notlar
+Attachments	🟡 Orta	2-3 saat	Backend: File upload API, Frontend: Drag-drop UI
+Checklist	🟢 Kolay	1-2 saat	Database: Checklist model, UI: Basit liste
+Dates	🟢 Kolay	1 saat	Zaten var, sadece UI geliştirme
+Members	🟡 Orta	1-2 saat	Database değişikliği gerekebilir (many-to-many)
+Custom Fields	🔴 Zor	4-5 saat	Flexible schema, complex UI
+🚀 Önerilen Sıralama:
+Fase 1 - Kolay & Etkili (2-3 saat):
+✅ Checklist (En kullanışlı, kolay)
+📅 Dates (Zaten altyapı var)
+Fase 2 - Orta Zorluk (3-4 saat):
+📎 Attachments (Çok kullanışlı)
+👥 Multiple Members
+Fase 3 - Gelişmiş (4-5 saat):
+🏷️ Custom Fields (İsteğe bağlı)
+💡 Öneri:
+Başlayalım mı? İlk olarak Checklist özelliğini ekleyebiliriz:
+En kolay
+En kullanışlı
+Trello'nun en popüler özelliği
+1-2 saatte biter
+Checklist'i şöyle yapardım:
+Task detail modal'ına "Checklist" bölümü
+"Add checklist item" input
+Her item checkbox ile
+Progress bar (Ör: "3/5 tasks completed")
+Undo/redo desteği
+Başlayalım mı checklist ile? 🎯
+
+
+

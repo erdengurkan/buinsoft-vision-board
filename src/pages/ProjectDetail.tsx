@@ -19,6 +19,7 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { format } from "date-fns";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useWorkflow } from "@/contexts/WorkflowContext";
+import { UndoRedoProvider, useUndoRedo, UndoableAction } from "@/contexts/UndoRedoContext";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -32,7 +33,8 @@ const priorityColors: Record<Priority, string> = {
   Critical: "bg-red-900 text-white",
 };
 
-const ProjectDetail = () => {
+// Inner component with undo/redo logic
+const ProjectDetailContent = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -43,6 +45,7 @@ const ProjectDetail = () => {
   const { getProjectTotalTime } = useWorklog();
   const queryClient = useQueryClient();
   const { taskStatuses, addTaskStatus, deleteTaskStatus, updateTaskStatus } = useWorkflow();
+  const { addAction } = useUndoRedo();
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isTaskDetailModalOpen, setIsTaskDetailModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
@@ -185,6 +188,12 @@ const ProjectDetail = () => {
     const task = project.tasks.find((t) => t.id === taskId);
     if (!task) return;
 
+    // Save before state for undo
+    const beforeState: Partial<Task> = {};
+    Object.keys(updates).forEach(key => {
+      beforeState[key as keyof Task] = task[key as keyof Task];
+    });
+
     try {
       // Optimistic update for better UX (especially for drag-drop)
       // CRITICAL: Always preserve status if not explicitly being changed
@@ -256,6 +265,17 @@ const ProjectDetail = () => {
         }
       }
 
+      // Add to undo history (include all updates)
+      if (!skipActivityLog) {
+        addAction({
+          type: 'TASK_UPDATE',
+          taskId,
+          projectId: project.id,
+          before: beforeState,
+          after: updates
+        });
+      }
+
       // Only show toast for non-order updates
       if (!skipActivityLog && !updates.order) {
         toast.success("Task updated");
@@ -273,6 +293,13 @@ const ProjectDetail = () => {
 
     try {
       await deleteTaskMutation.mutateAsync(taskId);
+
+      // Add to undo history
+      addAction({
+        type: 'TASK_DELETE',
+        task: { ...task },
+        projectId: project.id
+      });
 
       // Log activity
       logActivity(
@@ -311,11 +338,25 @@ const ProjectDetail = () => {
         // We'll handle the shifting in backend or accept overlapping orders for now
       }
       
-      await addTaskStatus({
+      const newStatus = await addTaskStatus({
         name: newStatusName.trim(),
         color: newStatusColor,
         order,
       });
+      
+      // Add to undo history
+      if (newStatus) {
+        addAction({
+          type: 'STATUS_CREATE',
+          status: {
+            id: newStatus.id,
+            name: newStatus.name,
+            color: newStatus.color,
+            order: newStatus.order
+          }
+        });
+      }
+      
       toast.success("Status added");
       setShowAddStatusDialog(false);
       setNewStatusName("");
@@ -328,7 +369,21 @@ const ProjectDetail = () => {
 
   const handleEditStatus = async (statusId: string, newName: string, newColor: string) => {
     try {
+      // Find current status for undo
+      const currentStatus = taskStatuses.find(s => s.id === statusId);
+      const before = currentStatus ? { name: currentStatus.name, color: currentStatus.color } : { name: '', color: '' };
+      
       await updateTaskStatus(statusId, { name: newName, color: newColor });
+      
+      // Add to undo history
+      addAction({
+        type: 'STATUS_UPDATE',
+        statusId,
+        statusName: before.name, // Store original name for finding status after undo/redo
+        before,
+        after: { name: newName, color: newColor }
+      });
+      
       toast.success("Status updated");
     } catch (error: any) {
       console.error("Error updating status:", error);
@@ -358,6 +413,13 @@ const ProjectDetail = () => {
         `Task "${newTask.title}" created`,
         { taskId: newTask.id }
       );
+
+      // Add to undo history
+      addAction({
+        type: 'TASK_CREATE',
+        task: newTask,
+        projectId: project.id
+      });
 
       toast.success("Task created");
     } catch (error) {
@@ -391,6 +453,13 @@ const ProjectDetail = () => {
           { taskId: newTask.id }
         );
 
+        // Add to undo history
+        addAction({
+          type: 'TASK_CREATE',
+          task: newTask,
+          projectId: project.id
+        });
+
         toast.success("Task created");
         setIsTaskModalOpen(false);
       } catch (error) {
@@ -410,17 +479,113 @@ const ProjectDetail = () => {
   const deadlineStatus = getDeadlineStatus(project.deadline);
   const needsFollowUp = hasFollowUpNeeded(project.tasks);
 
+  // Undo/Redo handlers
+  const handleUndo = useCallback(async (action: UndoableAction) => {
+    if (!project) return;
+    
+    const API_URL = import.meta.env.VITE_API_URL || "/api";
+    
+    switch (action.type) {
+      case 'TASK_CREATE':
+        await handleDeleteTask(action.task.id);
+        break;
+
+      case 'TASK_UPDATE':
+        await handleUpdateTask(action.taskId, action.before, true);
+        break;
+
+      case 'TASK_DELETE':
+        // Recreate via API
+        await fetch(`${API_URL}/tasks`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...action.task, projectId: action.projectId }),
+        });
+        queryClient.invalidateQueries({ queryKey: ["projects"] });
+        toast.success("Undone: Task deletion");
+        break;
+
+      case 'STATUS_CREATE':
+        await deleteTaskStatus(action.status.id);
+        queryClient.invalidateQueries({ queryKey: ["workflow"] });
+        toast.success("Undone: Status creation");
+        break;
+
+      case 'STATUS_UPDATE':
+        const statusToUndo = taskStatuses.find(s => s.name === action.after.name) || 
+                             taskStatuses.find(s => s.id === action.statusId);
+        if (statusToUndo) {
+          await updateTaskStatus(statusToUndo.id, action.before);
+          queryClient.invalidateQueries({ queryKey: ["workflow"] });
+          toast.success("Undone: Status update");
+        }
+        break;
+
+      case 'STATUS_DELETE':
+        await addTaskStatus(action.status);
+        queryClient.invalidateQueries({ queryKey: ["workflow"] });
+        toast.success("Undone: Status deletion");
+        break;
+    }
+  }, [project, handleDeleteTask, handleUpdateTask, taskStatuses, deleteTaskStatus, updateTaskStatus, addTaskStatus, queryClient]);
+
+  const handleRedo = useCallback(async (action: UndoableAction) => {
+    if (!project) return;
+    
+    const API_URL = import.meta.env.VITE_API_URL || "/api";
+    
+    switch (action.type) {
+      case 'TASK_CREATE':
+        // Recreate via API
+        await fetch(`${API_URL}/tasks`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...action.task, projectId: action.projectId }),
+        });
+        queryClient.invalidateQueries({ queryKey: ["projects"] });
+        toast.success("Redone: Task creation");
+        break;
+
+      case 'TASK_UPDATE':
+        await handleUpdateTask(action.taskId, action.after, true);
+        break;
+
+      case 'TASK_DELETE':
+        await handleDeleteTask(action.task.id);
+        break;
+
+      case 'STATUS_CREATE':
+        await addTaskStatus(action.status);
+        queryClient.invalidateQueries({ queryKey: ["workflow"] });
+        toast.success("Redone: Status creation");
+        break;
+
+      case 'STATUS_UPDATE':
+        const statusToRedo = taskStatuses.find(s => s.name === action.before.name) ||
+                             taskStatuses.find(s => s.id === action.statusId);
+        if (statusToRedo) {
+          await updateTaskStatus(statusToRedo.id, action.after);
+          queryClient.invalidateQueries({ queryKey: ["workflow"] });
+          toast.success("Redone: Status update");
+        }
+        break;
+
+      case 'STATUS_DELETE':
+        const statusToDelete = taskStatuses.find(s => s.name === action.status.name);
+        if (statusToDelete) {
+          await deleteTaskStatus(statusToDelete.id);
+          queryClient.invalidateQueries({ queryKey: ["workflow"] });
+          toast.success("Redone: Status deletion");
+        }
+        break;
+    }
+  }, [project, handleDeleteTask, handleUpdateTask, taskStatuses, addTaskStatus, updateTaskStatus, deleteTaskStatus, queryClient]);
+
   return (
+    <UndoRedoProvider onUndo={handleUndo} onRedo={handleRedo}>
     <div className="flex flex-col h-full overflow-hidden">
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        <div className="flex items-center justify-between mb-3 px-6 pt-4 shrink-0">
-          <h2 className="text-lg font-semibold text-foreground">Tasks</h2>
-          <Button size="sm" onClick={() => handleCreateTask()}>
-            <Plus className="h-4 w-4 mr-1" />
-            New Task
-          </Button>
-        </div>
-        <div className="flex-1 min-h-0 px-6 pb-6 overflow-hidden">
+        <div className="flex-1 min-h-0 px-6 pt-4 pb-6 overflow-hidden">
         {project.tasks.length > 0 ? (
           <TaskKanban
             projectId={project.id}
@@ -444,7 +609,24 @@ const ProjectDetail = () => {
             }}
             onDeleteStatus={async (statusId: string) => {
               try {
+                // Find status for undo
+                const status = taskStatuses.find(s => s.id === statusId);
+                
                 await deleteTaskStatus(statusId);
+                
+                // Add to undo history
+                if (status) {
+                  addAction({
+                    type: 'STATUS_DELETE',
+                    status: {
+                      id: status.id,
+                      name: status.name,
+                      color: status.color,
+                      order: status.order ?? 0
+                    }
+                  });
+                }
+                
                 toast.success("Status deleted");
               } catch (error: any) {
                 toast.error(error.message || "Failed to delete status");
@@ -798,7 +980,8 @@ const ProjectDetail = () => {
         </DialogContent>
       </Dialog>
     </div>
+    </UndoRedoProvider>
   );
 };
 
-export default ProjectDetail;
+export default ProjectDetailContent;
