@@ -104,19 +104,32 @@ export const createStatus = async (req: Request, res: Response) => {
     try {
         const data = createStatusSchema.parse(req.body);
 
-        // If order not provided, add to end (within the same project if projectId specified)
-        if (data.order === undefined) {
-            const whereClause: any = { type: data.type };
-            if (data.projectId) {
-                whereClause.projectId = data.projectId;
-            }
+        // Build where clause for filtering statuses
+        const whereClause: any = { type: data.type };
+        if (data.projectId) {
+            whereClause.projectId = data.projectId;
+        } else {
+            whereClause.projectId = null;
+        }
 
+        // If order not provided, add to end
+        if (data.order === undefined) {
             const maxOrder = await prisma.workflowStatus.findFirst({
                 where: whereClause,
                 orderBy: { order: 'desc' },
                 select: { order: true },
             });
             data.order = (maxOrder?.order ?? -1) + 1;
+        } else if (data.order === 0) {
+            // If adding to start (order = 0), increment all existing statuses' orders
+            await prisma.workflowStatus.updateMany({
+                where: whereClause,
+                data: {
+                    order: {
+                        increment: 1,
+                    },
+                },
+            });
         }
 
         const status = await prisma.workflowStatus.create({
@@ -134,6 +147,7 @@ export const createStatus = async (req: Request, res: Response) => {
         if (error instanceof z.ZodError) {
             res.status(400).json({ error: 'Invalid input', details: error.issues });
         } else {
+            console.error('Error creating status:', error);
             res.status(500).json({ error: 'Failed to create status' });
         }
     }
