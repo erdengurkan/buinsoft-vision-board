@@ -7,7 +7,7 @@ interface AppContextType {
   projects: Project[];
   updateProject: (id: string, updates: Partial<Project>) => void;
   deleteProject: (id: string) => void;
-  addProject: (project: Project) => void;
+  addProject: (project: Partial<Project>) => void;
   getProjectById: (id: string) => Project | undefined;
   isLoading: boolean;
 }
@@ -53,7 +53,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   });
 
   const addProjectMutation = useMutation({
-    mutationFn: async (project: Project) => {
+    mutationFn: async (project: Partial<Project>) => {
       const res = await fetch(`${API_URL}/projects`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -75,7 +75,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Project> }) => {
       // Remove tasks from updates - tasks should be managed via /api/tasks endpoints
       const { tasks, ...projectUpdates } = updates;
-      
+
       const res = await fetch(`${API_URL}/projects/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -110,7 +110,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     },
   });
 
-  const addProject = (project: Project) => {
+  const addProject = (project: Partial<Project>) => {
     addProjectMutation.mutate(project);
   };
 

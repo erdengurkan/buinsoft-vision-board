@@ -23,6 +23,8 @@ import { useActivityLog } from "@/hooks/useActivityLog";
 import { useDashboardFilters } from "@/hooks/useDashboardFilters";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { MessageSquare, ChevronDown } from "lucide-react";
 
 const Dashboard = () => {
   const { projects, updateProject, deleteProject, addProject } = useApp();
@@ -293,85 +295,127 @@ const Dashboard = () => {
     toast.success("Filtered to overdue tasks");
   };
 
+  const handleQuickCreateProject = (status: string, title: string) => {
+    const newProject: Partial<Project> = {
+      title,
+      status,
+      client: "New Client",
+      assignee: currentUser,
+      priority: "Medium",
+      startDate: new Date(),
+      endDate: new Date(new Date().setDate(new Date().getDate() + 30)),
+      description: "Quickly added project",
+      tasks: [],
+    };
+    addProject(newProject);
+
+    // Log activity
+    // We don't have the ID yet, so we can't log activity here effectively unless we wait for response
+    // But addProject is optimistic/async. For now, we skip explicit logging here as the mutation onSuccess could handle it if we refactored.
+    // Or we just log a generic "Project created" without ID if the logger supports it, but it requires ID.
+    // So we'll rely on the mutation's success toast.
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Project Dashboard</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage all your projects in one place
-          </p>
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="flex-none px-6 pt-4 pb-2">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Project Dashboard</h1>
+            <p className="text-muted-foreground mt-1">
+              Manage all your projects in one place
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsCommentsCollapsed(!isCommentsCollapsed)}
+            className={cn("gap-2", !isCommentsCollapsed && "bg-accent")}
+          >
+            <MessageSquare className="h-4 w-4" />
+            Comments
+          </Button>
+        </div>
+
+        <DashboardQuickActions
+          onNewProject={handleCreateProject}
+          onNewTask={handleNewTask}
+          onMyTasks={handleMyTasks}
+          onTodaysFollowUps={handleTodaysFollowUps}
+          onOverdueTasks={handleOverdueTasks}
+        />
+
+        <div className="mt-4">
+          <DashboardFilters
+            filters={filters}
+            sortBy={sortBy}
+            projects={projects}
+            onFilterChange={updateFilter}
+            onToggleFilter={toggleFilter}
+            onSortChange={setSortBy}
+            onClearFilters={clearFilters}
+            hasActiveFilters={hasActiveFilters}
+          />
         </div>
       </div>
 
-      <DashboardQuickActions
-        onNewProject={handleCreateProject}
-        onNewTask={handleNewTask}
-        onMyTasks={handleMyTasks}
-        onTodaysFollowUps={handleTodaysFollowUps}
-        onOverdueTasks={handleOverdueTasks}
-      />
-
-      <DashboardFilters
-        filters={filters}
-        sortBy={sortBy}
-        projects={projects}
-        onFilterChange={updateFilter}
-        onToggleFilter={toggleFilter}
-        onSortChange={setSortBy}
-        onClearFilters={clearFilters}
-        hasActiveFilters={hasActiveFilters}
-      />
-
-      <div className="relative">
-        <div className={cn("grid gap-6", isCommentsCollapsed ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-4")}>
-          <div className={cn(isCommentsCollapsed ? "col-span-1" : "lg:col-span-3")}>
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCorners}
-              onDragStart={handleDragStart}
-              onDragOver={handleDragOver}
-              onDragEnd={handleDragEnd}
-            >
-              <div className="flex gap-4 overflow-x-auto pb-4">
-                {projectStatuses
-                  .sort((a, b) => a.order - b.order)
-                  .map((statusColumn) => (
-                    <KanbanColumn
-                      key={statusColumn.id}
-                      status={statusColumn.name}
-                      statusColor={statusColumn.color}
-                      projects={getProjectsByStatus(statusColumn.name)}
-                      onDeleteProject={handleDeleteProject}
-                      onEditProject={handleEditProject}
-                    />
-                  ))}
-              </div>
-              <DragOverlay>
-                {activeProject ? (
-                  <ProjectCard project={activeProject} onDelete={() => { }} onEdit={() => { }} />
-                ) : null}
-              </DragOverlay>
-            </DndContext>
+      <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden px-6 pb-6">
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="flex gap-4 h-full min-w-max">
+            {projectStatuses
+              .sort((a, b) => a.order - b.order)
+              .map((statusColumn) => (
+                <div key={statusColumn.id} className="w-80 h-full flex flex-col">
+                  <KanbanColumn
+                    status={statusColumn.name}
+                    statusColor={statusColumn.color}
+                    projects={getProjectsByStatus(statusColumn.name)}
+                    onDeleteProject={handleDeleteProject}
+                    onEditProject={handleEditProject}
+                    onQuickCreate={handleQuickCreateProject}
+                  />
+                </div>
+              ))}
           </div>
-          {!isCommentsCollapsed && (
-            <div className="lg:col-span-1">
-              <RecentComments
-                onCollapseChange={setIsCommentsCollapsed}
-                isCollapsed={isCommentsCollapsed}
-              />
-            </div>
-          )}
-        </div>
-        {isCommentsCollapsed && (
-          <div className="absolute right-6 top-0 z-10">
+          <DragOverlay>
+            {activeProject ? (
+              <ProjectCard project={activeProject} onDelete={() => { }} onEdit={() => { }} />
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      </div>
+
+      {/* Floating Comments Panel */}
+      {!isCommentsCollapsed && (
+        <div className="fixed bottom-4 right-4 z-50 w-[90vw] sm:w-96 max-h-[70vh] bg-background border border-border rounded-lg shadow-2xl flex flex-col">
+          <div className="flex items-center justify-between p-3 border-b border-border bg-muted/30">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" />
+              Recent Comments
+            </h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsCommentsCollapsed(true)}
+              className="h-6 w-6 p-0"
+            >
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="overflow-y-auto flex-1">
             <RecentComments
               onCollapseChange={setIsCommentsCollapsed}
-              isCollapsed={isCommentsCollapsed}
+              isCollapsed={false}
             />
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       <ProjectFormModal
         open={isProjectModalOpen}

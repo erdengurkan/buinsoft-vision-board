@@ -101,28 +101,20 @@ async function main() {
     console.log('✅ Workflow statuses created');
 
     // Create Labels
-    const labels = await Promise.all([
-        prisma.label.upsert({
-            where: { name: 'Automation' },
-            update: {},
-            create: { name: 'Automation', color: 'bg-blue-500' },
-        }),
-        prisma.label.upsert({
-            where: { name: 'API' },
-            update: {},
-            create: { name: 'API', color: 'bg-green-500' },
-        }),
-        prisma.label.upsert({
-            where: { name: 'Web' },
-            update: {},
-            create: { name: 'Web', color: 'bg-purple-500' },
-        }),
-        prisma.label.upsert({
-            where: { name: 'Backend' },
-            update: {},
-            create: { name: 'Backend', color: 'bg-indigo-500' },
-        }),
-    ]);
+    const labelsData = [
+        { name: 'Automation', color: 'bg-blue-500' },
+        { name: 'API', color: 'bg-green-500' },
+        { name: 'Web', color: 'bg-purple-500' },
+        { name: 'Backend', color: 'bg-indigo-500' },
+    ];
+
+    const labels = [];
+    for (const l of labelsData) {
+        const label = await prisma.label.create({
+            data: l,
+        });
+        labels.push(label);
+    }
 
     console.log('✅ Labels created');
 
@@ -313,26 +305,103 @@ async function main() {
         }),
     ]);
 
-    console.log('✅ Tasks created');
+    // Create More Demo Projects
+    const projectsData = [
+        { title: 'CRM Integration', client: 'SalesForce', status: 'Pending', priority: 'High', color: 'bg-blue-500' },
+        { title: 'Website Redesign', client: 'Creative Agency', status: 'In Progress', priority: 'Medium', color: 'bg-purple-500' },
+        { title: 'Mobile App V2', client: 'TechCorp', status: 'In Progress', priority: 'Critical', color: 'bg-green-500' },
+        { title: 'Data Migration', client: 'BigData Co', status: 'Done', priority: 'High', color: 'bg-orange-500' },
+        { title: 'Security Audit', client: 'SecureNet', status: 'Pending', priority: 'Critical', color: 'bg-red-500' },
+        { title: 'Cloud Infrastructure', client: 'CloudSystems', status: 'In Progress', priority: 'High', color: 'bg-indigo-500' },
+        { title: 'AI Chatbot', client: 'FutureTech', status: 'Pending', priority: 'Medium', color: 'bg-pink-500' },
+        { title: 'Payment Gateway', client: 'FinTech Ltd', status: 'Done', priority: 'High', color: 'bg-yellow-500' },
+        { title: 'User Dashboard', client: 'SaaS Inc', status: 'In Progress', priority: 'Medium', color: 'bg-teal-500' },
+        { title: 'API Documentation', client: 'DevTools', status: 'Pending', priority: 'Low', color: 'bg-gray-500' },
+    ];
+
+    for (const p of projectsData) {
+        const project = await prisma.project.create({
+            data: {
+                title: p.title,
+                client: p.client,
+                assignee: 'Emre, Gurkan',
+                startDate: new Date(),
+                endDate: new Date(new Date().setDate(new Date().getDate() + 30)),
+                deadline: new Date(new Date().setDate(new Date().getDate() + 15)),
+                priority: p.priority,
+                status: p.status,
+                description: `Description for ${p.title}`,
+                labels: {
+                    connect: [{ id: labels[Math.floor(Math.random() * labels.length)].id }],
+                },
+            },
+        });
+
+        // Add random tasks
+        await prisma.task.create({
+            data: {
+                title: `Initial Setup for ${p.title}`,
+                description: 'Setup repository and basic structure',
+                status: 'Done',
+                priority: 'High',
+                projectId: project.id,
+                assignee: 'Emre',
+                order: 0,
+            },
+        });
+
+        await prisma.task.create({
+            data: {
+                title: `Development Phase 1`,
+                description: 'Core features implementation',
+                status: 'In Progress',
+                priority: 'High',
+                projectId: project.id,
+                assignee: 'Gurkan',
+                order: 1,
+            },
+        });
+
+        await prisma.task.create({
+            data: {
+                title: `Testing & QA`,
+                description: 'Unit tests and integration testing',
+                status: 'Pending',
+                priority: 'Medium',
+                projectId: project.id,
+                assignee: 'Emre',
+                order: 2,
+            },
+        });
+    }
+
+    console.log('✅ Additional projects and tasks created');
 
     // Create some activity logs
     await prisma.activityLog.create({
         data: {
-            action: 'created',
-            entityType: 'project',
-            entityId: project1.id,
+            actionType: 'project_created',
+            user: 'Admin',
             description: 'Project created',
             projectId: project1.id,
+            metadata: {
+                entityType: 'project',
+                entityId: project1.id,
+            }
         },
     });
 
     await prisma.activityLog.create({
         data: {
-            action: 'updated',
-            entityType: 'task',
-            entityId: tasks1[2].id,
+            actionType: 'task_status_changed',
+            user: 'Emre',
             description: 'Task status changed to In Progress',
             projectId: project1.id,
+            metadata: {
+                entityType: 'task',
+                entityId: tasks1[2].id,
+                newStatus: 'In Progress'
+            }
         },
     });
 

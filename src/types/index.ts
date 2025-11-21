@@ -65,6 +65,7 @@ export interface Project {
   followUp: boolean;
   labels: Label[];
   description: string;
+  order?: number;
   tasks: Task[];
 }
 
