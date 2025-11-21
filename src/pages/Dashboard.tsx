@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -24,7 +24,7 @@ import { useDashboardFilters } from "@/hooks/useDashboardFilters";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, ChevronDown, Plus } from "lucide-react";
+import { MessageSquare, ChevronDown, Plus, ZoomIn, ZoomOut, Maximize2, Lock, Unlock } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -60,6 +60,16 @@ const Dashboard = () => {
   const [newStatusName, setNewStatusName] = useState("");
   const [newStatusColor, setNewStatusColor] = useState("bg-blue-500");
   const [addStatusPosition, setAddStatusPosition] = useState<'start' | 'end'>('end');
+
+  // Zoom and Pan states
+  const [zoom, setZoom] = useState(0.75); // Default zoom at 75%
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isLocked, setIsLocked] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startPos, setStartPos] = useState({ x: 0, y: 0 });
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const kanbanContainerRef = useRef<HTMLDivElement>(null);
+  const kanbanContentRef = useRef<HTMLDivElement>(null);
 
   // Get current user (placeholder - in real app this would come from auth)
   const currentUser = "Emre Kılınç";
@@ -407,6 +417,76 @@ const Dashboard = () => {
 
   const [filtersExpanded, setFiltersExpanded] = useState(true);
 
+  // Mouse wheel zoom handler
+  const handleWheel = (e: React.WheelEvent) => {
+    if (isLocked) return;
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    const newZoom = Math.max(0.5, Math.min(2.0, zoom + delta));
+    setZoom(newZoom);
+  };
+
+  // Mouse drag-to-pan functionality
+  const handleMouseDown = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (
+      target.closest('[role="button"]') ||
+      target.closest('button') ||
+      target.closest('a') ||
+      target.closest('[data-dnd-kit-drag-handle]') ||
+      target.closest('[data-dnd-kit-sortable]')
+    ) {
+      return;
+    }
+    if (isLocked) return;
+    setIsDragging(true);
+    setStartPos({ x: e.pageX, y: e.pageY });
+    setPanStart(pan);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || isLocked) return;
+    e.preventDefault();
+    const deltaX = e.pageX - startPos.x;
+    const deltaY = e.pageY - startPos.y;
+    setPan({
+      x: panStart.x + deltaX,
+      y: panStart.y + deltaY,
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleMouseLeave = () => {
+    setIsDragging(false);
+  };
+
+  // Zoom control handlers
+  const handleZoomIn = () => {
+    if (isLocked) return;
+    setZoom((prev) => Math.min(2.0, prev + 0.1));
+  };
+
+  const handleZoomOut = () => {
+    if (isLocked) return;
+    setZoom((prev) => Math.max(0.5, prev - 0.1));
+  };
+
+  const handleFitView = () => {
+    if (isLocked) return;
+    setZoom(0.75);
+    setPan({ x: 0, y: 0 });
+  };
+
+  const handleToggleLock = () => {
+    setIsLocked((prev) => !prev);
+    if (!isLocked) {
+      setIsDragging(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="flex-none px-3 pb-1.5 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10">
@@ -468,7 +548,16 @@ const Dashboard = () => {
         )}
       </div>
 
-      <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden">
+      <div
+        ref={kanbanContainerRef}
+        className="flex-1 min-h-0 overflow-hidden relative"
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+        style={{ cursor: isLocked ? 'default' : isDragging ? 'grabbing' : 'grab' }}
+      >
         <DndContext
           sensors={sensors}
           collisionDetection={closestCorners}
@@ -476,7 +565,15 @@ const Dashboard = () => {
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
-          <div className="flex gap-4 h-full min-w-max">
+          <div
+            ref={kanbanContentRef}
+            className="flex gap-4 h-full min-w-max"
+            style={{
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+              transformOrigin: 'top left',
+              transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+            }}
+          >
             {projectStatuses
               .sort((a, b) => a.order - b.order)
               .map((statusColumn) => (
@@ -500,6 +597,51 @@ const Dashboard = () => {
             ) : null}
           </DragOverlay>
         </DndContext>
+        
+        {/* Zoom Controls - Bottom Left */}
+        <div className="fixed bottom-4 left-4 z-50">
+          <div className="flex flex-col gap-1 bg-card border-2 border-primary/20 rounded-lg shadow-xl p-1.5 backdrop-blur-sm">
+            <Button
+              onClick={handleZoomIn}
+              disabled={isLocked || zoom >= 2.0}
+              className="rounded-md h-8 w-8 p-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all disabled:opacity-50"
+              size="sm"
+              title="Zoom In (+)"
+            >
+              <ZoomIn className="h-4 w-4" />
+            </Button>
+            <Button
+              onClick={handleZoomOut}
+              disabled={isLocked || zoom <= 0.5}
+              className="rounded-md h-8 w-8 p-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all disabled:opacity-50"
+              size="sm"
+              title="Zoom Out (-)"
+            >
+              <ZoomOut className="h-4 w-4" />
+            </Button>
+            <Button
+              onClick={handleFitView}
+              disabled={isLocked}
+              className="rounded-md h-8 w-8 p-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all disabled:opacity-50"
+              size="sm"
+              title="Fit View (75%)"
+            >
+              <Maximize2 className="h-4 w-4" />
+            </Button>
+            <Button
+              onClick={handleToggleLock}
+              className={`rounded-md h-8 w-8 p-0 shadow-md transition-all ${
+                isLocked
+                  ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground'
+                  : 'bg-primary hover:bg-primary/90 text-primary-foreground'
+              }`}
+              size="sm"
+              title={isLocked ? 'Unlock' : 'Lock'}
+            >
+              {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* Floating Comments Panel */}

@@ -32,7 +32,7 @@ export const AppLayout = () => {
       <Sidebar isCollapsed={isSidebarCollapsed} onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-auto p-6 relative">
+        <main className="flex-1 overflow-auto relative">
           <Outlet />
         </main>
       </div>
