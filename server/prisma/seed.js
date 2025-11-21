@@ -175,10 +175,28 @@ async function main() {
                 },
             },
         });
+
+        // Create default task statuses for THIS project
+        const defaultTaskStatuses = [
+            { name: 'Todo', color: 'bg-gray-500', order: 0 },
+            { name: 'In Progress', color: 'bg-yellow-500', order: 1 },
+            { name: 'Done', color: 'bg-green-500', order: 2 },
+        ];
+
+        for (const status of defaultTaskStatuses) {
+            await prisma.workflowStatus.create({
+                data: {
+                    ...status,
+                    type: 'task',
+                    projectId: project.id,
+                },
+            });
+        }
+
         createdProjects.push(project);
     }
 
-    console.log(`✅ Created ${createdProjects.length} projects with tasks`);
+    console.log(`✅ Created ${createdProjects.length} projects with tasks and task statuses`);
 
     // Create Todos
     await prisma.todo.createMany({
