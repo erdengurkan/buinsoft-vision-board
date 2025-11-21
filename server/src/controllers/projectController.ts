@@ -46,7 +46,7 @@ export const createProject = async (req: Request, res: Response) => {
             },
         });
 
-        // Create default task statuses for THIS project
+        // Create default task statuses for THIS specific project
         const defaultTaskStatuses = [
             { name: 'Todo', color: 'bg-gray-500', order: 0 },
             { name: 'In Progress', color: 'bg-yellow-500', order: 1 },
@@ -54,18 +54,30 @@ export const createProject = async (req: Request, res: Response) => {
         ];
 
         for (const status of defaultTaskStatuses) {
-            await prisma.workflowStatus.create({
-                data: {
-                    ...status,
+            // Check if already exists for this project
+            const existing = await prisma.workflowStatus.findFirst({
+                where: {
+                    name: status.name,
                     type: 'task',
-                    projectId: project.id,  // Link to THIS project
+                    projectId: project.id,
                 },
             });
+
+            if (!existing) {
+                await prisma.workflowStatus.create({
+                    data: {
+                        ...status,
+                        type: 'task',
+                        projectId: project.id,  // Link to THIS project
+                    },
+                });
+            }
         }
 
+        console.log(`✅ Created project "${project.title}" with task statuses`);
         res.json(project);
     } catch (error) {
-        console.error(error);
+        console.error('Create project error:', error);
         res.status(500).json({ error: 'Failed to create project' });
     }
 };

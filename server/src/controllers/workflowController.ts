@@ -32,34 +32,42 @@ async function ensureDefaultWorkflowStatuses() {
         { name: 'Done', color: 'bg-green-500', type: 'project', order: 2 },
     ];
 
-    // Check and create task statuses
+    // Check and create GLOBAL task statuses (projectId: null)
     for (const status of defaultTaskStatuses) {
         const existing = await prisma.workflowStatus.findFirst({
             where: {
                 name: status.name,
                 type: status.type,
+                projectId: null,  // GLOBAL statuses
             },
         });
 
         if (!existing) {
             await prisma.workflowStatus.create({
-                data: status,
+                data: {
+                    ...status,
+                    projectId: null,  // Explicitly set to null for global
+                },
             });
         }
     }
 
-    // Check and create project statuses
+    // Check and create GLOBAL project statuses (projectId: null)
     for (const status of defaultProjectStatuses) {
         const existing = await prisma.workflowStatus.findFirst({
             where: {
                 name: status.name,
                 type: status.type,
+                projectId: null,  // GLOBAL statuses
             },
         });
 
         if (!existing) {
             await prisma.workflowStatus.create({
-                data: status,
+                data: {
+                    ...status,
+                    projectId: null,  // Explicitly set to null for global
+                },
             });
         }
     }
@@ -68,6 +76,9 @@ async function ensureDefaultWorkflowStatuses() {
 export const getWorkflow = async (req: Request, res: Response) => {
     try {
         const { projectId } = req.query;
+
+        // FIRST: Ensure default GLOBAL statuses exist
+        await ensureDefaultWorkflowStatuses();
 
         // Filter statuses by projectId if provided, otherwise return ONLY global statuses (projectId: null)
         const whereClause = projectId && typeof projectId === 'string'

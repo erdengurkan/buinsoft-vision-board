@@ -242,14 +242,9 @@ const Dashboard = () => {
       };
       addProject(newProject);
 
-      // Log activity
-      logActivity(
-        newProject.id,
-        "project_created",
-        `Project "${newProject.title}" created`,
-        {}
-      );
-
+      // Note: Can't log activity here as newProject.id is undefined (async operation)
+      // Activity will be logged in the mutation's onSuccess if needed
+      
       toast.success("Project created");
     }
   };
@@ -299,21 +294,18 @@ const Dashboard = () => {
     const newProject: Partial<Project> = {
       title,
       status,
-      client: "New Client",
+      client: "Quick Add",
       assignee: currentUser,
       priority: "Medium",
       startDate: new Date(),
       endDate: new Date(new Date().setDate(new Date().getDate() + 30)),
       description: "Quickly added project",
+      labels: [],
       tasks: [],
     };
     addProject(newProject);
-
-    // Log activity
-    // We don't have the ID yet, so we can't log activity here effectively unless we wait for response
-    // But addProject is optimistic/async. For now, we skip explicit logging here as the mutation onSuccess could handle it if we refactored.
-    // Or we just log a generic "Project created" without ID if the logger supports it, but it requires ID.
-    // So we'll rely on the mutation's success toast.
+    
+    toast.success(`"${title}" added to ${status}`);
   };
 
   return (
