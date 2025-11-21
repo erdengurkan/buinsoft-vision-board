@@ -42,7 +42,7 @@ const Dashboard = () => {
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | undefined>(undefined);
   const [isCommentsCollapsed, setIsCommentsCollapsed] = useState(false);
-  
+
   // Get current user (placeholder - in real app this would come from auth)
   const currentUser = "Emre Kılınç";
 
@@ -63,19 +63,19 @@ const Dashboard = () => {
 
   const handleDragOver = (event: DragOverEvent) => {
     const { active, over } = event;
-    
+
     if (!over) return;
-    
+
     const projectId = active.id as string;
     const overId = over.id as string;
-    
+
     const project = filteredAndSortedProjects.find((p) => p.id === projectId);
     if (!project) return;
-    
+
     // Check if over a project or status column
     const overProject = filteredAndSortedProjects.find((p) => p.id === overId);
     const isOverStatus = projectStatuses.some((s) => s.name === overId);
-    
+
     // If dragging over a project in the same status, we can reorder
     // If dragging over a different status column or project in different status, we can move
     // The visual feedback is handled by @dnd-kit automatically
@@ -101,7 +101,7 @@ const Dashboard = () => {
 
     // Check if dropping on a status column (droppable area)
     const isOverStatus = projectStatuses.some((s) => s.name === overId);
-    
+
     // Check if dropping on another project
     const overProject = filteredAndSortedProjects.find((p) => p.id === overId);
 
@@ -110,7 +110,7 @@ const Dashboard = () => {
       const newStatus = overId as ProjectStatus;
       if (project.status !== newStatus) {
         updateProject(projectId, { status: newStatus, order: 0 });
-        
+
         // Log activity
         logActivity(
           projectId,
@@ -121,7 +121,7 @@ const Dashboard = () => {
             newStatus: newStatus,
           }
         );
-        
+
         toast.success(`Project moved to ${newStatus}`);
       }
     } else if (overProject) {
@@ -135,14 +135,14 @@ const Dashboard = () => {
             const bOrder = (b as any).order ?? 0;
             return aOrder - bOrder;
           });
-        
+
         const oldIndex = statusProjects.findIndex((p) => p.id === projectId);
         const newIndex = statusProjects.findIndex((p) => p.id === overId);
-        
+
         if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
           // Use arrayMove to get the correct reordered array
           const reordered = arrayMove(statusProjects, oldIndex, newIndex);
-          
+
           // Update order for all projects in this status based on new positions
           reordered.forEach((p, index) => {
             updateProject(p.id, { order: index });
@@ -157,13 +157,13 @@ const Dashboard = () => {
             const bOrder = (b as any).order ?? 0;
             return aOrder - bOrder;
           });
-        
+
         const targetIndex = newStatusProjects.findIndex((p) => p.id === overId);
-        
+
         if (targetIndex !== -1) {
           // Move project to new status first
           updateProject(projectId, { status: overProject.status });
-          
+
           // Then reorder: insert dragged project at target position
           // All projects from targetIndex onwards get their order incremented
           newStatusProjects.forEach((p, index) => {
@@ -171,10 +171,10 @@ const Dashboard = () => {
               updateProject(p.id, { order: index + 1 });
             }
           });
-          
+
           // Set dragged project's order to targetIndex
           updateProject(projectId, { order: targetIndex });
-          
+
           // Log activity
           logActivity(
             projectId,
@@ -185,7 +185,7 @@ const Dashboard = () => {
               newStatus: overProject.status,
             }
           );
-          
+
           toast.success(`Project moved to ${overProject.status}`);
         }
       }
@@ -212,7 +212,7 @@ const Dashboard = () => {
   const handleSaveProject = (projectData: Partial<Project>) => {
     if (editingProject) {
       updateProject(editingProject.id, projectData);
-      
+
       // Log activity
       logActivity(
         editingProject.id,
@@ -220,11 +220,11 @@ const Dashboard = () => {
         `Project "${editingProject.title}" updated`,
         {}
       );
-      
+
       toast.success("Project updated");
     } else {
-      const newProject: Project = {
-        id: `project-${Date.now()}`,
+      const newProject: Partial<Project> = {
+        // Remove id - let backend/Prisma generate UUID
         title: projectData.title || "",
         client: projectData.client || "",
         assignee: projectData.assignee || "",
@@ -239,7 +239,7 @@ const Dashboard = () => {
         tasks: [],
       };
       addProject(newProject);
-      
+
       // Log activity
       logActivity(
         newProject.id,
@@ -247,7 +247,7 @@ const Dashboard = () => {
         `Project "${newProject.title}" created`,
         {}
       );
-      
+
       toast.success("Project created");
     }
   };
@@ -326,38 +326,38 @@ const Dashboard = () => {
       <div className="relative">
         <div className={cn("grid gap-6", isCommentsCollapsed ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-4")}>
           <div className={cn(isCommentsCollapsed ? "col-span-1" : "lg:col-span-3")}>
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragStart={handleDragStart}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCorners}
+              onDragStart={handleDragStart}
               onDragOver={handleDragOver}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="flex gap-4 overflow-x-auto pb-4">
+              onDragEnd={handleDragEnd}
+            >
+              <div className="flex gap-4 overflow-x-auto pb-4">
                 {projectStatuses
                   .sort((a, b) => a.order - b.order)
                   .map((statusColumn) => (
-            <KanbanColumn
+                    <KanbanColumn
                       key={statusColumn.id}
                       status={statusColumn.name}
                       statusColor={statusColumn.color}
                       projects={getProjectsByStatus(statusColumn.name)}
-              onDeleteProject={handleDeleteProject}
-              onEditProject={handleEditProject}
-            />
-          ))}
-        </div>
-        <DragOverlay>
-          {activeProject ? (
-            <ProjectCard project={activeProject} onDelete={() => {}} onEdit={() => {}} />
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+                      onDeleteProject={handleDeleteProject}
+                      onEditProject={handleEditProject}
+                    />
+                  ))}
+              </div>
+              <DragOverlay>
+                {activeProject ? (
+                  <ProjectCard project={activeProject} onDelete={() => { }} onEdit={() => { }} />
+                ) : null}
+              </DragOverlay>
+            </DndContext>
           </div>
           {!isCommentsCollapsed && (
             <div className="lg:col-span-1">
-              <RecentComments 
-                onCollapseChange={setIsCommentsCollapsed} 
+              <RecentComments
+                onCollapseChange={setIsCommentsCollapsed}
                 isCollapsed={isCommentsCollapsed}
               />
             </div>
@@ -365,8 +365,8 @@ const Dashboard = () => {
         </div>
         {isCommentsCollapsed && (
           <div className="absolute right-6 top-0 z-10">
-            <RecentComments 
-              onCollapseChange={setIsCommentsCollapsed} 
+            <RecentComments
+              onCollapseChange={setIsCommentsCollapsed}
               isCollapsed={isCommentsCollapsed}
             />
           </div>

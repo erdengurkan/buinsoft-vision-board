@@ -19,6 +19,7 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { format } from "date-fns";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useWorkflow } from "@/contexts/WorkflowContext";
+import { useProjectWorkflow } from "@/hooks/useProjectWorkflow";
 import { UndoRedoProvider, useUndoRedo, UndoableAction } from "@/contexts/UndoRedoContext";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -44,7 +45,7 @@ const ProjectDetailInner = () => {
   const { addComment, deleteComment, getProjectComments } = useComments(project?.id);
   const { getProjectTotalTime } = useWorklog();
   const queryClient = useQueryClient();
-  const { taskStatuses, addTaskStatus, deleteTaskStatus, updateTaskStatus } = useWorkflow();
+  const { taskStatuses, addTaskStatus, deleteTaskStatus, updateTaskStatus } = useProjectWorkflow(project?.id);
   const { addAction } = useUndoRedo();
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isTaskDetailModalOpen, setIsTaskDetailModalOpen] = useState(false);
@@ -94,7 +95,7 @@ const ProjectDetailInner = () => {
           });
         });
       }
-      
+
       // Invalidate after a delay to catch any SSE updates
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ["projects"] });
@@ -158,7 +159,7 @@ const ProjectDetailInner = () => {
       }
     }
   }, [searchParams, project, setSearchParams]);
-  
+
   const activityLogs = project ? getProjectLogs(project.id) : [];
   const projectComments = project ? getProjectComments(project.id) : [];
   const projectTotalTime = useMemo(() => {
@@ -184,7 +185,7 @@ const ProjectDetailInner = () => {
 
   const handleUpdateTask = async (taskId: string, updates: Partial<Task>, skipActivityLog = false) => {
     if (!project) return;
-    
+
     const task = project.tasks.find((t) => t.id === taskId);
     if (!task) return;
 
@@ -287,7 +288,7 @@ const ProjectDetailInner = () => {
 
   const handleDeleteTask = async (taskId: string) => {
     if (!project) return;
-    
+
     const task = project.tasks.find((t) => t.id === taskId);
     if (!task) return;
 
@@ -322,41 +323,22 @@ const ProjectDetailInner = () => {
   };
   const handleAddStatus = async () => {
     if (!newStatusName.trim()) return;
-    
+
     try {
       // Calculate order based on position
       let order = 0;
       if (addStatusPosition === 'end') {
-        // Add to end
-        const maxOrder = taskStatuses.length > 0 
-          ? Math.max(...taskStatuses.map(s => s.order ?? 0))
-          : -1;
-        order = maxOrder + 1;
+        // Add to end - find max order and add 1
+        order = taskStatuses.length > 0
+          ? Math.max(...taskStatuses.map(s => s.order)) + 1
+          : 0;
       } else {
-        // Add to start (order = 0), all others will shift
+        // Add to start - order = 0 (all others will be pushed right by backend)
         order = 0;
-        // We'll handle the shifting in backend or accept overlapping orders for now
       }
-      
-      const newStatus = await addTaskStatus({
-        name: newStatusName.trim(),
-        color: newStatusColor,
-        order,
-      });
-      
-      // Add to undo history
-      if (newStatus) {
-        addAction({
-          type: 'STATUS_CREATE',
-          status: {
-            id: newStatus.id,
-            name: newStatus.name,
-            color: newStatus.color,
-            order: newStatus.order
-          }
-        });
-      }
-      
+
+      await addTaskStatus(newStatusName.trim(), newStatusColor, order);
+
       toast.success("Status added");
       setShowAddStatusDialog(false);
       setNewStatusName("");
@@ -369,12 +351,16 @@ const ProjectDetailInner = () => {
 
   const handleEditStatus = async (statusId: string, newName: string, newColor: string) => {
     try {
+      console.log("🔄 Updating status:", { statusId, newName, newColor });
+
       // Find current status for undo
       const currentStatus = taskStatuses.find(s => s.id === statusId);
+      console.log("📋 Current status before update:", currentStatus);
+
       const before = currentStatus ? { name: currentStatus.name, color: currentStatus.color } : { name: '', color: '' };
-      
+
       await updateTaskStatus(statusId, { name: newName, color: newColor });
-      
+
       // Add to undo history
       addAction({
         type: 'STATUS_UPDATE',
@@ -383,17 +369,19 @@ const ProjectDetailInner = () => {
         before,
         after: { name: newName, color: newColor }
       });
-      
+
+      console.log("✅ Status updated successfully");
       toast.success("Status updated");
     } catch (error: any) {
-      console.error("Error updating status:", error);
+      console.error("❌ Error updating status:", error);
+      console.error("Error details:", error.response?.data);
       toast.error(error?.message || "Failed to update status");
     }
   };
 
   const handleQuickCreateTask = async (status: string, title: string, description?: string) => {
     if (!project) return;
-    
+
     try {
       const newTask = await createTaskMutation.mutateAsync({
         projectId: project.id,
@@ -422,8 +410,12 @@ const ProjectDetailInner = () => {
       });
 
       toast.success("Task created");
-    } catch (error) {
-      toast.error("Failed to create task");
+    } catch (error: any) {
+      console.error("❌ Task creation failed:", error);
+      console.error("Error response:", error.response);
+      console.error("Error data:", error.response?.data);
+      console.error("Project ID being sent:", project?.id);
+      toast.error(error.response?.data?.error || "Failed to create task");
     }
   };
 
@@ -483,14 +475,32 @@ const ProjectDetailInner = () => {
     <div className="flex flex-col h-full overflow-hidden">
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <div className="flex-1 min-h-0 px-6 pt-4 pb-6 overflow-hidden">
-        {project.tasks.length > 0 ? (
           <TaskKanban
             projectId={project.id}
             tasks={project.tasks}
+            statuses={taskStatuses}
             onUpdateTask={handleUpdateTask}
             onReorderTasks={(taskOrders) => {
               if (project) {
+                // Capture previous state for undo
+                const previousOrders = taskOrders.map(order => {
+                  const task = project.tasks.find(t => t.id === order.id);
+                  return {
+                    id: order.id,
+                    order: task?.order ?? 0,
+                    status: task?.status ?? order.status
+                  };
+                });
+
                 reorderTasksMutation.mutate({ projectId: project.id, taskOrders });
+
+                // Add to undo history
+                addAction({
+                  type: 'TASK_REORDER',
+                  projectId: project.id,
+                  taskOrders,
+                  previousOrders
+                });
               }
             }}
             onDeleteTask={handleDeleteTask}
@@ -508,9 +518,9 @@ const ProjectDetailInner = () => {
               try {
                 // Find status for undo
                 const status = taskStatuses.find(s => s.id === statusId);
-                
+
                 await deleteTaskStatus(statusId);
-                
+
                 // Add to undo history
                 if (status) {
                   addAction({
@@ -523,7 +533,7 @@ const ProjectDetailInner = () => {
                     }
                   });
                 }
-                
+
                 toast.success("Status deleted");
               } catch (error: any) {
                 toast.error(error.message || "Failed to delete status");
@@ -531,13 +541,6 @@ const ProjectDetailInner = () => {
             }}
             onEditStatus={handleEditStatus}
           />
-        ) : (
-          <div className="text-center py-12 bg-muted/30 rounded-lg">
-            <p className="text-muted-foreground">
-              No tasks yet for this project
-            </p>
-          </div>
-        )}
         </div>
       </div>
 
@@ -566,9 +569,9 @@ const ProjectDetailInner = () => {
 
       {/* Floating Time Spent Panel */}
       {showTimeSpent && (
-        <div 
-          className="fixed bottom-4 z-50 w-[90vw] sm:w-96 max-h-[70vh] bg-background border border-border rounded-lg shadow-2xl flex flex-col" 
-          style={{ 
+        <div
+          className="fixed bottom-4 z-50 w-[90vw] sm:w-96 max-h-[70vh] bg-background border border-border rounded-lg shadow-2xl flex flex-col"
+          style={{
             right: showActivityLog ? '420px' : '16px',
             maxWidth: 'calc(100vw - 32px)'
           }}
@@ -589,132 +592,132 @@ const ProjectDetailInner = () => {
           </div>
           <div className="overflow-y-auto flex-1 p-4">
             {(() => {
-                    // Collect all worklogs from all tasks
-                    const allWorklogs = project.tasks.flatMap(task => {
-                      const taskWorklogs = task.worklog || [];
-                      return taskWorklogs.map(log => ({ 
-                        ...log, 
-                        taskId: task.id, 
-                        taskTitle: task.title,
-                        durationMs: log.durationMs || 0,
-                        user: log.user || "Unknown"
-                      }));
-                    });
+              // Collect all worklogs from all tasks
+              const allWorklogs = project.tasks.flatMap(task => {
+                const taskWorklogs = task.worklog || [];
+                return taskWorklogs.map(log => ({
+                  ...log,
+                  taskId: task.id,
+                  taskTitle: task.title,
+                  durationMs: log.durationMs || 0,
+                  user: log.user || "Unknown"
+                }));
+              });
 
-                    if (allWorklogs.length === 0) {
-                      return <p className="text-sm text-muted-foreground">No time tracked yet</p>;
-                    }
+              if (allWorklogs.length === 0) {
+                return <p className="text-sm text-muted-foreground">No time tracked yet</p>;
+              }
 
-                    // Calculate total project time
-                    const totalTimeMs = allWorklogs.reduce((sum, log) => sum + (log.durationMs || 0), 0);
-                    const totalTimeSeconds = Math.floor(totalTimeMs / 1000);
-                    const totalHours = Math.floor(totalTimeSeconds / 3600);
-                    const totalMinutes = Math.floor((totalTimeSeconds % 3600) / 60);
+              // Calculate total project time
+              const totalTimeMs = allWorklogs.reduce((sum, log) => sum + (log.durationMs || 0), 0);
+              const totalTimeSeconds = Math.floor(totalTimeMs / 1000);
+              const totalHours = Math.floor(totalTimeSeconds / 3600);
+              const totalMinutes = Math.floor((totalTimeSeconds % 3600) / 60);
 
-                    // Group by user (for user totals)
-                    const byUser = allWorklogs.reduce((acc: Record<string, number>, log) => {
-                      const user = log.user || "Unknown";
-                      acc[user] = (acc[user] || 0) + (log.durationMs || 0);
-                      return acc;
-                    }, {});
+              // Group by user (for user totals)
+              const byUser = allWorklogs.reduce((acc: Record<string, number>, log) => {
+                const user = log.user || "Unknown";
+                acc[user] = (acc[user] || 0) + (log.durationMs || 0);
+                return acc;
+              }, {});
 
-                    // Group by task (for task breakdown)
-                    const byTask = allWorklogs.reduce((acc: Record<string, { title: string; logs: typeof allWorklogs }>, log) => {
-                      if (!acc[log.taskId]) {
-                        acc[log.taskId] = { title: log.taskTitle || "Unknown Task", logs: [] };
-                      }
-                      acc[log.taskId].logs.push(log);
-                      return acc;
-                    }, {});
+              // Group by task (for task breakdown)
+              const byTask = allWorklogs.reduce((acc: Record<string, { title: string; logs: typeof allWorklogs }>, log) => {
+                if (!acc[log.taskId]) {
+                  acc[log.taskId] = { title: log.taskTitle || "Unknown Task", logs: [] };
+                }
+                acc[log.taskId].logs.push(log);
+                return acc;
+              }, {});
 
-                    return (
-                      <div className="space-y-3">
-                        {/* Total Project Time */}
-                        <div className="flex items-center justify-between pb-2 border-b">
-                          <span className="text-sm text-muted-foreground">Total Project Time</span>
-                          <span className="text-lg font-bold">
-                            {totalHours}h {totalMinutes}m
-                          </span>
-                        </div>
+              return (
+                <div className="space-y-3">
+                  {/* Total Project Time */}
+                  <div className="flex items-center justify-between pb-2 border-b">
+                    <span className="text-sm text-muted-foreground">Total Project Time</span>
+                    <span className="text-lg font-bold">
+                      {totalHours}h {totalMinutes}m
+                    </span>
+                  </div>
 
-                        {/* By User */}
-                        <div className="space-y-2">
-                          <h4 className="text-xs font-semibold text-muted-foreground uppercase">By User</h4>
-                          {Object.entries(byUser)
-                            .sort(([, a], [, b]) => b - a) // Sort by time descending
-                            .map(([user, timeMs]) => {
+                  {/* By User */}
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase">By User</h4>
+                    {Object.entries(byUser)
+                      .sort(([, a], [, b]) => b - a) // Sort by time descending
+                      .map(([user, timeMs]) => {
+                        const userTimeSeconds = Math.floor(timeMs / 1000);
+                        const userHours = Math.floor(userTimeSeconds / 3600);
+                        const userMinutes = Math.floor((userTimeSeconds % 3600) / 60);
+                        return (
+                          <div key={user} className="flex items-center justify-between text-xs">
+                            <span className="font-medium truncate">{user}</span>
+                            <span className="text-muted-foreground">
+                              {userHours}h {userMinutes}m
+                            </span>
+                          </div>
+                        );
+                      })}
+                  </div>
+
+                  {/* By Task */}
+                  <div className="space-y-2 max-h-48 overflow-y-auto border-t pt-2">
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase mt-2">By Task</h4>
+                    {Object.entries(byTask)
+                      .sort(([, a], [, b]) => {
+                        // Sort by total time (descending - max time first)
+                        const aTime = a.logs.reduce((sum, log) => sum + (log.durationMs || 0), 0);
+                        const bTime = b.logs.reduce((sum, log) => sum + (log.durationMs || 0), 0);
+                        return bTime - aTime;
+                      })
+                      .map(([taskId, { title, logs }]) => {
+                        const taskTimeMs = logs.reduce((sum, log) => sum + (log.durationMs || 0), 0);
+                        const taskTimeSeconds = Math.floor(taskTimeMs / 1000);
+                        const taskHours = Math.floor(taskTimeSeconds / 3600);
+                        const taskMinutes = Math.floor((taskTimeSeconds % 3600) / 60);
+
+                        // Group by user within this task
+                        const taskByUser = logs.reduce((acc: Record<string, number>, log) => {
+                          const user = log.user || "Unknown";
+                          acc[user] = (acc[user] || 0) + (log.durationMs || 0);
+                          return acc;
+                        }, {});
+
+                        return (
+                          <div key={taskId} className="text-sm space-y-1 mb-2">
+                            <div className="flex items-center justify-between font-medium">
+                              <span className="truncate">{title}</span>
+                              <span className="text-muted-foreground">
+                                {taskHours}h {taskMinutes}m
+                              </span>
+                            </div>
+                            {Object.entries(taskByUser).map(([user, timeMs]) => {
                               const userTimeSeconds = Math.floor(timeMs / 1000);
                               const userHours = Math.floor(userTimeSeconds / 3600);
                               const userMinutes = Math.floor((userTimeSeconds % 3600) / 60);
                               return (
-                                <div key={user} className="flex items-center justify-between text-xs">
-                                  <span className="font-medium truncate">{user}</span>
-                                  <span className="text-muted-foreground">
-                                    {userHours}h {userMinutes}m
-                                  </span>
+                                <div key={`${taskId} - ${user}`} className="pl-2 text-xs text-muted-foreground flex items-center justify-between">
+                                  <span className="truncate">{user}</span>
+                                  <span>{userHours}h {userMinutes}m</span>
                                 </div>
                               );
                             })}
-                        </div>
-
-                        {/* By Task */}
-                        <div className="space-y-2 max-h-48 overflow-y-auto border-t pt-2">
-                          <h4 className="text-xs font-semibold text-muted-foreground uppercase mt-2">By Task</h4>
-                          {Object.entries(byTask)
-                            .sort(([, a], [, b]) => {
-                              // Sort by total time (descending - max time first)
-                              const aTime = a.logs.reduce((sum, log) => sum + (log.durationMs || 0), 0);
-                              const bTime = b.logs.reduce((sum, log) => sum + (log.durationMs || 0), 0);
-                              return bTime - aTime;
-                            })
-                            .map(([taskId, { title, logs }]) => {
-                              const taskTimeMs = logs.reduce((sum, log) => sum + (log.durationMs || 0), 0);
-                              const taskTimeSeconds = Math.floor(taskTimeMs / 1000);
-                              const taskHours = Math.floor(taskTimeSeconds / 3600);
-                              const taskMinutes = Math.floor((taskTimeSeconds % 3600) / 60);
-                              
-                              // Group by user within this task
-                              const taskByUser = logs.reduce((acc: Record<string, number>, log) => {
-                                const user = log.user || "Unknown";
-                                acc[user] = (acc[user] || 0) + (log.durationMs || 0);
-                                return acc;
-                              }, {});
-
-                              return (
-                                <div key={taskId} className="text-sm space-y-1 mb-2">
-                                  <div className="flex items-center justify-between font-medium">
-                                    <span className="truncate">{title}</span>
-                                    <span className="text-muted-foreground">
-                                      {taskHours}h {taskMinutes}m
-                                    </span>
-                                  </div>
-                                  {Object.entries(taskByUser).map(([user, timeMs]) => {
-                                    const userTimeSeconds = Math.floor(timeMs / 1000);
-                                    const userHours = Math.floor(userTimeSeconds / 3600);
-                                    const userMinutes = Math.floor((userTimeSeconds % 3600) / 60);
-                                    return (
-                                      <div key={`${taskId}-${user}`} className="pl-2 text-xs text-muted-foreground flex items-center justify-between">
-                                        <span className="truncate">{user}</span>
-                                        <span>{userHours}h {userMinutes}m</span>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              );
-                            })}
-                        </div>
-                      </div>
-                    );
-                  })()}
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
 
       {/* Floating Comments Panel */}
       {showComments && (
-        <div 
-          className="fixed bottom-4 z-50 w-[90vw] sm:w-96 max-h-[70vh] bg-background border border-border rounded-lg shadow-2xl flex flex-col" 
-          style={{ 
+        <div
+          className="fixed bottom-4 z-50 w-[90vw] sm:w-96 max-h-[70vh] bg-background border border-border rounded-lg shadow-2xl flex flex-col"
+          style={{
             right: `${16 + (showActivityLog ? 420 : 0) + (showTimeSpent ? 420 : 0)}px`,
             maxWidth: 'calc(100vw - 32px)'
           }}
@@ -885,13 +888,13 @@ const ProjectDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { getProjectById } = useApp();
   const project = getProjectById(id!);
-  const { taskStatuses, addTaskStatus, deleteTaskStatus, updateTaskStatus } = useWorkflow();
+  const { taskStatuses, addTaskStatus, deleteTaskStatus, updateTaskStatus } = useProjectWorkflow(project?.id);
   const queryClient = useQueryClient();
 
   // Undo handler
   const handleUndo = useCallback(async (action: UndoableAction) => {
     const API_URL = import.meta.env.VITE_API_URL || "/api";
-    
+
     switch (action.type) {
       case 'TASK_CREATE':
         await fetch(`${API_URL}/tasks/${action.task.id}`, { method: "DELETE" });
@@ -926,8 +929,8 @@ const ProjectDetail = () => {
         break;
 
       case 'STATUS_UPDATE':
-        const statusToUndo = taskStatuses.find(s => s.name === action.after.name) || 
-                             taskStatuses.find(s => s.id === action.statusId);
+        const statusToUndo = taskStatuses.find(s => s.name === action.after.name) ||
+          taskStatuses.find(s => s.id === action.statusId);
         if (statusToUndo) {
           await updateTaskStatus(statusToUndo.id, action.before);
           queryClient.invalidateQueries({ queryKey: ["workflow"] });
@@ -936,9 +939,22 @@ const ProjectDetail = () => {
         break;
 
       case 'STATUS_DELETE':
-        await addTaskStatus(action.status);
+        await addTaskStatus(action.status.name, action.status.color, action.status.order);
         queryClient.invalidateQueries({ queryKey: ["workflow"] });
         toast.success("Undone: Status deletion");
+        break;
+
+      case 'TASK_REORDER':
+        // Revert to old orders
+        await Promise.all(action.previousOrders.map(order =>
+          fetch(`${API_URL}/tasks/${order.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ order: order.order, status: order.status }),
+          })
+        ));
+        queryClient.invalidateQueries({ queryKey: ["projects"] });
+        toast.success("Undone: Task reorder");
         break;
     }
   }, [queryClient, taskStatuses, deleteTaskStatus, updateTaskStatus, addTaskStatus]);
@@ -946,7 +962,7 @@ const ProjectDetail = () => {
   // Redo handler
   const handleRedo = useCallback(async (action: UndoableAction) => {
     const API_URL = import.meta.env.VITE_API_URL || "/api";
-    
+
     switch (action.type) {
       case 'TASK_CREATE':
         await fetch(`${API_URL}/tasks`, {
@@ -975,14 +991,14 @@ const ProjectDetail = () => {
         break;
 
       case 'STATUS_CREATE':
-        await addTaskStatus(action.status);
+        await addTaskStatus(action.status.name, action.status.color, action.status.order);
         queryClient.invalidateQueries({ queryKey: ["workflow"] });
         toast.success("Redone: Status creation");
         break;
 
       case 'STATUS_UPDATE':
         const statusToRedo = taskStatuses.find(s => s.name === action.before.name) ||
-                             taskStatuses.find(s => s.id === action.statusId);
+          taskStatuses.find(s => s.id === action.statusId);
         if (statusToRedo) {
           await updateTaskStatus(statusToRedo.id, action.after);
           queryClient.invalidateQueries({ queryKey: ["workflow"] });
@@ -997,6 +1013,19 @@ const ProjectDetail = () => {
           queryClient.invalidateQueries({ queryKey: ["workflow"] });
           toast.success("Redone: Status deletion");
         }
+        break;
+
+      case 'TASK_REORDER':
+        // Apply new orders
+        await Promise.all(action.taskOrders.map(order =>
+          fetch(`${API_URL}/tasks/${order.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ order: order.order, status: order.status }),
+          })
+        ));
+        queryClient.invalidateQueries({ queryKey: ["projects"] });
+        toast.success("Redone: Task reorder");
         break;
     }
   }, [queryClient, taskStatuses, addTaskStatus, deleteTaskStatus, updateTaskStatus]);

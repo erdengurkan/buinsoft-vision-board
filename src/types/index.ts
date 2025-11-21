@@ -38,6 +38,7 @@ export interface Task {
   createdAt: Date;
   deadline?: Date;
   followUp: boolean;
+  order: number; // Added order field
   worklog?: WorklogEntry[];
   flowDiagram?: FlowDiagram;
 }

@@ -13,18 +13,19 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
-import { Task, TaskStatus } from "@/types";
+import { Task } from "@/types";
+import { StatusColumn } from "@/types/workflow";
 import { TaskColumn } from "./TaskColumn";
 import { TaskCard } from "./TaskCard";
-import { useWorkflow } from "@/contexts/WorkflowContext";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 
 interface TaskKanbanProps {
   projectId: string;
   tasks: Task[];
+  statuses: StatusColumn[]; // Use StatusColumn instead of TaskStatus
   onUpdateTask: (taskId: string, updates: Partial<Task>, skipActivityLog?: boolean) => void;
-  onReorderTasks?: (taskOrders: Array<{ id: string; order: number }>) => void;
+  onReorderTasks?: (taskOrders: Array<{ id: string; order: number; status: string }>) => void;
   onDeleteTask: (taskId: string) => void;
   onViewTaskDetails?: (task: Task) => void;
   onCreateTask?: (status: string) => void;
@@ -37,6 +38,7 @@ interface TaskKanbanProps {
 export const TaskKanban = ({
   projectId,
   tasks,
+  statuses, // Destructure statuses
   onUpdateTask,
   onReorderTasks,
   onDeleteTask,
@@ -47,7 +49,8 @@ export const TaskKanban = ({
   onDeleteStatus,
   onEditStatus,
 }: TaskKanbanProps) => {
-  const { taskStatuses } = useWorkflow();
+  // Remove useWorkflow hook usage
+  const taskStatuses = statuses;
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -125,7 +128,7 @@ export const TaskKanban = ({
   const collisionDetection: CollisionDetection = (args) => {
     // First check if pointer is within any droppable area
     const pointerCollisions = pointerWithin(args);
-    
+
     if (pointerCollisions.length > 0) {
       // If pointer is within a droppable, use closest center for precise positioning
       return closestCenter({
@@ -135,7 +138,7 @@ export const TaskKanban = ({
         ),
       });
     }
-    
+
     // Fallback to rect intersection
     return rectIntersection(args);
   };
@@ -195,11 +198,11 @@ export const TaskKanban = ({
       if (task.status !== newStatus) {
         // Calculate order for the new status (append to end)
         const newStatusTasks = tasks.filter((t) => t.status === newStatus);
-        const maxOrder = newStatusTasks.length > 0 
+        const maxOrder = newStatusTasks.length > 0
           ? Math.max(...newStatusTasks.map((t) => (t as any).order ?? 0))
           : -1;
         const newOrder = maxOrder + 1;
-        
+
         onUpdateTask(taskId, { status: newStatus, order: newOrder }, false);
       }
     } else if (overTask) {
@@ -226,6 +229,7 @@ export const TaskKanban = ({
             const taskOrders = reordered.map((t, index) => ({
               id: t.id,
               order: index,
+              status: task.status,
             }));
             onReorderTasks(taskOrders);
           } else {
@@ -242,7 +246,7 @@ export const TaskKanban = ({
             updates.forEach((update, idx) => {
               setTimeout(() => {
                 // CRITICAL: Explicitly include status to prevent backend from resetting it
-                onUpdateTask(update.taskId, { 
+                onUpdateTask(update.taskId, {
                   order: update.order,
                   status: task.status, // Use the current task's status (same for all in this status)
                 }, true);
@@ -280,7 +284,7 @@ export const TaskKanban = ({
           updates.forEach((update, idx) => {
             setTimeout(() => {
               // CRITICAL: Always include status to prevent it from being lost
-              onUpdateTask(update.taskId, { 
+              onUpdateTask(update.taskId, {
                 order: update.order,
                 status: newStatus, // All tasks in this status have the same status
               }, true);
@@ -290,11 +294,11 @@ export const TaskKanban = ({
           // Fallback: just change status if target not found
           // Calculate order for the new status (append to end)
           const newStatusTasks = tasks.filter((t) => t.status === newStatus);
-          const maxOrder = newStatusTasks.length > 0 
+          const maxOrder = newStatusTasks.length > 0
             ? Math.max(...newStatusTasks.map((t) => (t as any).order ?? 0))
             : -1;
           const newOrder = maxOrder + 1;
-          
+
           onUpdateTask(taskId, { status: newStatus, order: newOrder }, false);
         }
       }
@@ -347,7 +351,7 @@ export const TaskKanban = ({
             </Button>
           </div>
         )}
-        
+
         {taskStatuses.map((status, index) => {
           const statusTasks = getTasksByStatus(status.name);
           return (

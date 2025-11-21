@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -19,12 +20,10 @@ export const login = async (req: Request, res: Response) => {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
-        // In a real app, we would compare hashed passwords here using bcrypt
-        // const isValid = await bcrypt.compare(password, user.password);
-        // For this demo/seed user, we are doing a direct comparison as requested for simplicity
-        // or assuming the seed data is plain text.
+        // Compare hashed password with provided password
+        const isValid = await bcrypt.compare(password, user.password);
 
-        if (user.password !== password) {
+        if (!isValid) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 

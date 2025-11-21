@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 
-const prisma = new PrismaClient();
+// Removed ensureDefaultWorkflowStatuses - now creating per-project statuses
 
 export const getProjects = async (req: Request, res: Response) => {
     try {
@@ -25,9 +26,7 @@ export const createProject = async (req: Request, res: Response) => {
     try {
         const { labels, tasks, ...projectData } = req.body;
 
-        // Handle labels connection/creation logic if needed, for now assuming simple creation
-        // This is a simplified version. In a real app, you'd likely connect existing labels.
-
+        // Create project first
         const project = await prisma.project.create({
             data: {
                 ...projectData,
@@ -46,6 +45,24 @@ export const createProject = async (req: Request, res: Response) => {
                 tasks: true,
             },
         });
+
+        // Create default task statuses for THIS project
+        const defaultTaskStatuses = [
+            { name: 'Todo', color: 'bg-gray-500', order: 0 },
+            { name: 'In Progress', color: 'bg-yellow-500', order: 1 },
+            { name: 'Done', color: 'bg-green-500', order: 2 },
+        ];
+
+        for (const status of defaultTaskStatuses) {
+            await prisma.workflowStatus.create({
+                data: {
+                    ...status,
+                    type: 'task',
+                    projectId: project.id,  // Link to THIS project
+                },
+            });
+        }
+
         res.json(project);
     } catch (error) {
         console.error(error);

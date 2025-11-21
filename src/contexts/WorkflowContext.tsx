@@ -23,7 +23,7 @@ interface WorkflowContextType {
 
 const WorkflowContext = createContext<WorkflowContextType | undefined>(undefined);
 
-const API_URL = import.meta.env.VITE_API_URL || "/api";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
 
 const defaultProjectStatuses: StatusColumn[] = [
   { id: "potential", name: "Potential", color: "bg-blue-500", order: 0 },
@@ -50,7 +50,7 @@ const defaultLabels: Label[] = [
 
 export const WorkflowProvider = ({ children }: { children: ReactNode }) => {
   const queryClient = useQueryClient();
-  
+
   const { data, isLoading } = useQuery({
     queryKey: ["workflow"],
     queryFn: async () => {
@@ -72,36 +72,36 @@ export const WorkflowProvider = ({ children }: { children: ReactNode }) => {
 
   // Parse statuses from backend or use defaults
   const allStatuses = data?.statuses || [];
-  
+
   // If backend returns statuses, use them; otherwise use defaults
   let projectStatuses: StatusColumn[] = defaultProjectStatuses;
   let taskStatuses: StatusColumn[] = defaultTaskStatuses;
-  
+
   if (allStatuses.length > 0) {
     // Backend statuses have type field
     const backendProjectStatuses = allStatuses.filter((s: any) => s.type === 'project');
     const backendTaskStatuses = allStatuses.filter((s: any) => s.type === 'task');
-    
+
     // Convert backend format to StatusColumn format
-    projectStatuses = backendProjectStatuses.length > 0 
+    projectStatuses = backendProjectStatuses.length > 0
       ? backendProjectStatuses.map((s: any) => ({
-          id: s.id,
-          name: s.name,
-          color: s.color,
-          order: s.order,
-        }))
+        id: s.id,
+        name: s.name,
+        color: s.color,
+        order: s.order,
+      }))
       : defaultProjectStatuses;
-      
+
     taskStatuses = backendTaskStatuses.length > 0
       ? backendTaskStatuses.map((s: any) => ({
-          id: s.id,
-          name: s.name,
-          color: s.color,
-          order: s.order,
-        }))
+        id: s.id,
+        name: s.name,
+        color: s.color,
+        order: s.order,
+      }))
       : defaultTaskStatuses;
   }
-  
+
   const labels = data?.labels || defaultLabels;
 
   // Task Status CRUD functions
@@ -115,22 +115,22 @@ export const WorkflowProvider = ({ children }: { children: ReactNode }) => {
       console.log('🔍 POST Request to:', url);
       console.log('📦 Payload:', payload);
       console.log('🌐 API_URL:', API_URL);
-      
+
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      
+
       console.log('📡 Response status:', res.status, res.statusText);
       console.log('📡 Response URL:', res.url);
-      
+
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ error: "Failed to create status" }));
         console.error("Failed to add task status:", res.status, errorData);
         throw new Error(errorData.error || "Failed to create status");
       }
-      
+
       const newStatus = await res.json();
       console.log("Status created successfully:", newStatus);
       queryClient.invalidateQueries({ queryKey: ["workflow"] });
@@ -143,15 +143,29 @@ export const WorkflowProvider = ({ children }: { children: ReactNode }) => {
 
   const updateTaskStatus = async (id: string, updates: Partial<StatusColumn>) => {
     try {
+      console.log("🌐 WorkflowContext: Updating task status via API:", { id, updates });
+      console.log("🌐 API URL:", `${API_URL}/workflow/status/${id}`);
+
       const res = await fetch(`${API_URL}/workflow/status/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updates),
       });
-      if (!res.ok) throw new Error("Failed to update status");
+
+      console.log("🌐 Response status:", res.status);
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        console.error("🌐 API Error response:", errorData);
+        throw new Error(errorData.error || "Failed to update status");
+      }
+
+      const result = await res.json();
+      console.log("🌐 API Success response:", result);
+
       queryClient.invalidateQueries({ queryKey: ["workflow"] });
     } catch (error) {
-      console.error("Failed to update task status:", error);
+      console.error("🌐 Failed to update task status:", error);
       throw error;
     }
   };

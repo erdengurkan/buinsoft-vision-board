@@ -7,6 +7,7 @@ const createStatusSchema = z.object({
     color: z.string(),
     type: z.enum(['project', 'task']),
     order: z.number().optional(),
+    projectId: z.string().optional(),  // NEW: Optional projectId for project-specific statuses
 });
 
 const updateStatusSchema = z.object({
@@ -15,14 +16,75 @@ const updateStatusSchema = z.object({
     order: z.number().optional(),
 });
 
+// Helper function to ensure default workflow statuses exist
+async function ensureDefaultWorkflowStatuses() {
+    // Default Workflow Statuses for Tasks
+    const defaultTaskStatuses = [
+        { name: 'Todo', color: 'bg-gray-500', type: 'task', order: 0 },
+        { name: 'In Progress', color: 'bg-yellow-500', type: 'task', order: 1 },
+        { name: 'Done', color: 'bg-green-500', type: 'task', order: 2 },
+    ];
+
+    // Default Workflow Statuses for Projects
+    const defaultProjectStatuses = [
+        { name: 'Pending', color: 'bg-red-500', type: 'project', order: 0 },
+        { name: 'In Progress', color: 'bg-orange-500', type: 'project', order: 1 },
+        { name: 'Done', color: 'bg-green-500', type: 'project', order: 2 },
+    ];
+
+    // Check and create task statuses
+    for (const status of defaultTaskStatuses) {
+        const existing = await prisma.workflowStatus.findFirst({
+            where: {
+                name: status.name,
+                type: status.type,
+            },
+        });
+
+        if (!existing) {
+            await prisma.workflowStatus.create({
+                data: status,
+            });
+        }
+    }
+
+    // Check and create project statuses
+    for (const status of defaultProjectStatuses) {
+        const existing = await prisma.workflowStatus.findFirst({
+            where: {
+                name: status.name,
+                type: status.type,
+            },
+        });
+
+        if (!existing) {
+            await prisma.workflowStatus.create({
+                data: status,
+            });
+        }
+    }
+}
+
 export const getWorkflow = async (req: Request, res: Response) => {
     try {
+        const { projectId } = req.query;
+
+        // Filter statuses by projectId if provided, otherwise return ONLY global statuses (projectId: null)
+        const whereClause = projectId && typeof projectId === 'string'
+            ? { projectId: projectId }
+            : { projectId: null };
+
         const [statuses, labels] = await Promise.all([
-            prisma.workflowStatus.findMany({ orderBy: { order: 'asc' } }),
+            prisma.workflowStatus.findMany({
+                where: whereClause,
+                orderBy: { order: 'asc' }
+            }),
             prisma.workflowLabel.findMany(),
         ]);
+
         res.json({ statuses, labels });
     } catch (error) {
+        console.error('Error fetching workflow:', error);
         res.status(500).json({ error: 'Failed to fetch workflow data' });
     }
 };
@@ -30,11 +92,16 @@ export const getWorkflow = async (req: Request, res: Response) => {
 export const createStatus = async (req: Request, res: Response) => {
     try {
         const data = createStatusSchema.parse(req.body);
-        
-        // If order not provided, add to end
+
+        // If order not provided, add to end (within the same project if projectId specified)
         if (data.order === undefined) {
+            const whereClause: any = { type: data.type };
+            if (data.projectId) {
+                whereClause.projectId = data.projectId;
+            }
+
             const maxOrder = await prisma.workflowStatus.findFirst({
-                where: { type: data.type },
+                where: whereClause,
                 orderBy: { order: 'desc' },
                 select: { order: true },
             });
@@ -47,6 +114,7 @@ export const createStatus = async (req: Request, res: Response) => {
                 color: data.color,
                 type: data.type,
                 order: data.order,
+                projectId: data.projectId || null,  // Set projectId or null
             },
         });
 
@@ -94,8 +162,13 @@ export const deleteStatus = async (req: Request, res: Response) => {
         }
 
         // Check if any tasks use this status
+        const whereClause: any = { status: status.name };
+        if (status.projectId) {
+            whereClause.projectId = status.projectId;
+        }
+
         const tasksWithStatus = await prisma.task.findFirst({
-            where: { status: status.name },
+            where: whereClause,
         });
 
         if (tasksWithStatus) {

@@ -23,8 +23,9 @@ model Project {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  tasks  Task[]
-  labels Label[]
+  tasks            Task[]
+  labels           Label[]
+  workflowStatuses WorkflowStatus[]  // Project-specific statuses
 }
 
 model Task {
@@ -77,11 +78,16 @@ model Todo {
 }
 
 model WorkflowStatus {
-  id    String @id @default(uuid())
-  name  String
-  color String
-  order Int
-  type  String // "project" or "task"
+  id        String   @id @default(uuid())
+  name      String
+  color     String
+  order     Int
+  type      String   // "project" or "task"
+  projectId String?  // Link to specific project
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model WorkflowLabel {

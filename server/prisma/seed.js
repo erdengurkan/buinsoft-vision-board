@@ -1,8 +1,43 @@
 const { PrismaClient } = require('@prisma/client');
+const bcrypt = require('bcryptjs');
 
 const prisma = new PrismaClient();
 
 async function main() {
+    // Hash password for users
+    const hashedPassword = await bcrypt.hash('123456', 10);
+
+    // Create Users
+    await prisma.user.upsert({
+        where: { email: 'test@buinsoft.com' },
+        update: {},
+        create: {
+            email: 'test@buinsoft.com',
+            password: hashedPassword,
+            name: 'Test User',
+        },
+    });
+
+    await prisma.user.upsert({
+        where: { email: 'emre.alemdar@buinsoft.com' },
+        update: {},
+        create: {
+            email: 'emre.alemdar@buinsoft.com',
+            password: hashedPassword,
+            name: 'Emre Alemdar',
+        },
+    });
+
+    await prisma.user.upsert({
+        where: { email: 'gerden@buinsoft.com' },
+        update: {},
+        create: {
+            email: 'gerden@buinsoft.com',
+            password: hashedPassword,
+            name: 'Gerden',
+        },
+    });
+
     // Create Labels
     const labels = await Promise.all([
         prisma.label.create({ data: { name: 'Automation', color: 'bg-blue-500' } }),
@@ -57,18 +92,11 @@ async function main() {
         ],
     });
 
-    // Create User
-    await prisma.user.upsert({
-        where: { email: 'test@buinsoft.com' },
-        update: {},
-        create: {
-            email: 'test@buinsoft.com',
-            password: 'Test1234',
-            name: 'Test User',
-        },
-    });
-
     console.log('Seed data created successfully');
+    console.log('\n📧 Login credentials:');
+    console.log('   Email: test@buinsoft.com | Password: 123456');
+    console.log('   Email: emre.alemdar@buinsoft.com | Password: 123456');
+    console.log('   Email: gerden@buinsoft.com | Password: 123456');
 }
 
 main()
