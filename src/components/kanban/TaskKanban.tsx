@@ -59,7 +59,7 @@ export const TaskKanban = ({
   
   // Zoom and Pan states
   const [zoom, setZoom] = useState(0.75); // Default zoom at 75%
-  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [pan, setPan] = useState({ x: 20, y: 20 }); // Default offset for better initial view
   const [isLocked, setIsLocked] = useState(false);
   
   // Drag-to-pan states
@@ -165,7 +165,7 @@ export const TaskKanban = ({
   const handleFitView = () => {
     if (isLocked) return;
     setZoom(0.75);
-    setPan({ x: 0, y: 0 });
+    setPan({ x: 20, y: 20 }); // Reset to default offset
   };
 
   const handleResetView = () => {
