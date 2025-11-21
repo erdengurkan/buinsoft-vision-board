@@ -118,6 +118,8 @@ export const TaskDetailModal = ({
     if (project) {
       navigate(`/project/${project.id}/task/${task.id}/flow`);
       onOpenChange(false);
+    } else {
+      toast.error("Project not found");
     }
   };
 
@@ -457,6 +459,10 @@ export const TaskDetailModal = ({
                 <Button variant="outline" onClick={handleCloseRequest}>
                   Cancel
                 </Button>
+                <Button variant="outline" onClick={handleOpenFlow} className="gap-2">
+                  <Workflow className="h-4 w-4" />
+                  Edit Flow
+                </Button>
                 <Button onClick={handleSave}>
                   Save Changes
                 </Button>
@@ -467,12 +473,10 @@ export const TaskDetailModal = ({
                   <Edit2 className="h-4 w-4" />
                   Edit Task
                 </Button>
-                {task.flowDiagram && (
-                  <Button variant="outline" onClick={handleOpenFlow} className="gap-2">
-                    <Workflow className="h-4 w-4" />
-                    Edit Flow
-                  </Button>
-                )}
+                <Button variant="outline" onClick={handleOpenFlow} className="gap-2">
+                  <Workflow className="h-4 w-4" />
+                  Edit Flow
+                </Button>
               </>
             )}
           </div>

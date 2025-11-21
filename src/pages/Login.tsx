@@ -23,22 +23,28 @@ const Login = () => {
     setIsLoading(true);
     try {
       const API_URL = import.meta.env.VITE_API_URL || "/api";
+      console.log("🔐 Login attempt:", { email, API_URL });
+      
       const res = await fetch(`${API_URL}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await res.json();
+      console.log("📡 Login response status:", res.status);
 
       if (!res.ok) {
-        throw new Error(data.error || "Login failed");
+        const errorData = await res.json().catch(() => ({ error: "Login failed" }));
+        throw new Error(errorData.error || "Login failed");
       }
+
+      const data = await res.json();
+      console.log("✅ Login successful:", data.user?.name);
 
       toast.success(`Welcome back, ${data.user.name || "User"}!`);
       navigate("/dashboard");
     } catch (error: any) {
-      console.error("Login error:", error);
+      console.error("❌ Login error:", error);
       toast.error(error.message || "Invalid credentials");
     } finally {
       setIsLoading(false);
@@ -85,7 +91,7 @@ const Login = () => {
             </Button>
           </form>
           <p className="mt-4 text-center text-xs text-muted-foreground">
-            Demo: test@buinsoft.com / Test1234
+            Demo: test@buinsoft.com / 123456
           </p>
         </CardContent>
       </Card>

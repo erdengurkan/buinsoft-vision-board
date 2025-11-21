@@ -18,6 +18,7 @@ router.post('/login', authController.login);
 
 // Projects
 router.get('/projects', projectController.getProjects);
+router.get('/projects/:id', projectController.getProjectById);
 router.post('/projects', projectController.createProject);
 router.patch('/projects/:id', projectController.updateProject);
 router.delete('/projects/:id', projectController.deleteProject);
