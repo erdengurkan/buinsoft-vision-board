@@ -18,7 +18,7 @@ import { StatusColumn } from "@/types/workflow";
 import { TaskColumn } from "./TaskColumn";
 import { TaskCard } from "./TaskCard";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, ZoomIn, ZoomOut, Maximize2, Lock, Unlock } from "lucide-react";
 
 interface TaskKanbanProps {
   projectId: string;
@@ -55,9 +55,17 @@ export const TaskKanban = ({
   const taskStatuses = statuses;
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const kanbanContentRef = useRef<HTMLDivElement>(null);
+  
+  // Zoom and Pan states
+  const [zoom, setZoom] = useState(0.75); // Default zoom at 75%
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isLocked, setIsLocked] = useState(false);
+  
+  // Drag-to-pan states
   const [isDragging, setIsDragging] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
+  const [startPos, setStartPos] = useState({ x: 0, y: 0 });
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -67,9 +75,22 @@ export const TaskKanban = ({
     })
   );
 
-  // Mouse drag-to-scroll functionality
+  // Mouse wheel zoom handler
+  const handleWheel = (e: React.WheelEvent) => {
+    if (isLocked) return;
+    
+    // Prevent default scrolling
+    e.preventDefault();
+    
+    // Zoom in/out with mouse wheel
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    const newZoom = Math.max(0.5, Math.min(2.0, zoom + delta));
+    setZoom(newZoom);
+  };
+
+  // Mouse drag-to-pan functionality
   const handleMouseDown = (e: React.MouseEvent) => {
-    // Only start drag-to-scroll if clicking on empty space (not on a task or interactive element)
+    // Only start drag-to-pan if clicking on empty space (not on a task or interactive element)
     const target = e.target as HTMLElement;
     // Check if clicking on interactive elements
     if (
@@ -82,20 +103,24 @@ export const TaskKanban = ({
       return;
     }
 
+    if (isLocked) return;
+
     setIsDragging(true);
-    const container = scrollContainerRef.current;
-    if (container) {
-      setStartX(e.pageX - container.offsetLeft);
-      setScrollLeft(container.scrollLeft);
-    }
+    setStartPos({ x: e.pageX, y: e.pageY });
+    setPanStart(pan);
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || !scrollContainerRef.current) return;
+    if (!isDragging || isLocked) return;
     e.preventDefault();
-    const x = e.pageX - (scrollContainerRef.current.offsetLeft || 0);
-    const walk = (x - startX) * 2; // Scroll speed multiplier
-    scrollContainerRef.current.scrollLeft = scrollLeft - walk;
+    
+    const deltaX = e.pageX - startPos.x;
+    const deltaY = e.pageY - startPos.y;
+    
+    setPan({
+      x: panStart.x + deltaX,
+      y: panStart.y + deltaY,
+    });
   };
 
   const handleMouseUp = () => {
@@ -115,7 +140,7 @@ export const TaskKanban = ({
       document.body.style.userSelect = 'none';
       document.body.style.cursor = 'grabbing';
     } else {
-      container.style.cursor = 'grab';
+      container.style.cursor = isLocked ? 'default' : 'grab';
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
     }
@@ -124,7 +149,37 @@ export const TaskKanban = ({
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
     };
-  }, [isDragging]);
+  }, [isDragging, isLocked]);
+
+  // Zoom control handlers
+  const handleZoomIn = () => {
+    if (isLocked) return;
+    setZoom((prev) => Math.min(2.0, prev + 0.1));
+  };
+
+  const handleZoomOut = () => {
+    if (isLocked) return;
+    setZoom((prev) => Math.max(0.5, prev - 0.1));
+  };
+
+  const handleFitView = () => {
+    if (isLocked) return;
+    setZoom(0.75);
+    setPan({ x: 0, y: 0 });
+  };
+
+  const handleResetView = () => {
+    if (isLocked) return;
+    setZoom(1.0);
+    setPan({ x: 0, y: 0 });
+  };
+
+  const handleToggleLock = () => {
+    setIsLocked((prev) => !prev);
+    if (!isLocked) {
+      setIsDragging(false);
+    }
+  };
 
   // Custom collision detection for better precision - uses pointer position
   const collisionDetection: CollisionDetection = (args) => {
@@ -333,12 +388,23 @@ export const TaskKanban = ({
     >
       <div
         ref={scrollContainerRef}
-        className="kanban-scroll-container flex gap-2 md:gap-4 overflow-x-auto pb-4 cursor-grab h-full"
+        className="kanban-scroll-container relative overflow-hidden h-full w-full"
+        onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
+        style={{ cursor: isLocked ? 'default' : isDragging ? 'grabbing' : 'grab' }}
       >
+        <div
+          ref={kanbanContentRef}
+          className="flex gap-2 md:gap-4 pb-4"
+          style={{
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transformOrigin: 'top left',
+            transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+          }}
+        >
         {/* Add Status Button - Only show before first status */}
         {onAddStatus && (
           <div className="flex items-start pt-12 shrink-0">
@@ -389,6 +455,52 @@ export const TaskKanban = ({
             </div>
           );
         })}
+        </div>
+        
+        {/* Zoom Controls - Bottom Left */}
+        <div className="fixed bottom-4 left-4 z-50">
+          <div className="flex flex-col gap-1 bg-card border-2 border-primary/20 rounded-lg shadow-xl p-1.5 backdrop-blur-sm">
+            <Button
+              onClick={handleZoomIn}
+              disabled={isLocked || zoom >= 2.0}
+              className="rounded-md h-8 w-8 p-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all disabled:opacity-50"
+              size="sm"
+              title="Zoom In (+)"
+            >
+              <ZoomIn className="h-4 w-4" />
+            </Button>
+            <Button
+              onClick={handleZoomOut}
+              disabled={isLocked || zoom <= 0.5}
+              className="rounded-md h-8 w-8 p-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all disabled:opacity-50"
+              size="sm"
+              title="Zoom Out (-)"
+            >
+              <ZoomOut className="h-4 w-4" />
+            </Button>
+            <Button
+              onClick={handleFitView}
+              disabled={isLocked}
+              className="rounded-md h-8 w-8 p-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all disabled:opacity-50"
+              size="sm"
+              title="Fit View (75%)"
+            >
+              <Maximize2 className="h-4 w-4" />
+            </Button>
+            <Button
+              onClick={handleToggleLock}
+              className={`rounded-md h-8 w-8 p-0 shadow-md transition-all ${
+                isLocked
+                  ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground'
+                  : 'bg-primary hover:bg-primary/90 text-primary-foreground'
+              }`}
+              size="sm"
+              title={isLocked ? 'Unlock' : 'Lock'}
+            >
+              {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+            </Button>
+          </div>
+        </div>
       </div>
       <DragOverlay>
         {activeTask ? <TaskCard task={activeTask} projectId={projectId} onDelete={() => { }} /> : null}
