@@ -54,11 +54,11 @@ export const DashboardFilters = ({
   const uniqueAssignees = Array.from(new Set(projects.map((p) => p.assignee)));
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-4 flex-wrap">
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">Filters:</span>
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5">
+          <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-xs font-medium">Filters:</span>
         </div>
 
         {/* Assignee Filter */}
@@ -72,7 +72,7 @@ export const DashboardFilters = ({
             }
           }}
         >
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-[140px] h-8 text-xs">
             <SelectValue placeholder="Assignee" />
           </SelectTrigger>
           <SelectContent>
@@ -96,7 +96,7 @@ export const DashboardFilters = ({
             }
           }}
         >
-          <SelectTrigger className="w-[150px]">
+          <SelectTrigger className="w-[120px] h-8 text-xs">
             <SelectValue placeholder="Priority" />
           </SelectTrigger>
           <SelectContent>
@@ -119,7 +119,7 @@ export const DashboardFilters = ({
             }
           }}
         >
-          <SelectTrigger className="w-[150px]">
+          <SelectTrigger className="w-[120px] h-8 text-xs">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -179,8 +179,8 @@ export const DashboardFilters = ({
         </Select>
 
         {hasActiveFilters && (
-          <Button variant="outline" size="sm" onClick={onClearFilters}>
-            <X className="h-4 w-4 mr-2" />
+          <Button variant="outline" size="sm" onClick={onClearFilters} className="h-8 text-xs gap-1.5">
+            <X className="h-3.5 w-3.5" />
             Clear All
           </Button>
         )}

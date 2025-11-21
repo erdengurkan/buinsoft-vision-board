@@ -28,6 +28,7 @@ interface TaskKanbanProps {
   onReorderTasks?: (taskOrders: Array<{ id: string; order: number; status: string }>) => void;
   onDeleteTask: (taskId: string) => void;
   onViewTaskDetails?: (task: Task) => void;
+  onEditTask?: (task: Task) => void;
   onCreateTask?: (status: string) => void;
   onQuickCreateTask?: (status: string, title: string, description?: string) => void;
   onAddStatus?: (position?: 'start' | 'end') => void;
@@ -43,6 +44,7 @@ export const TaskKanban = ({
   onReorderTasks,
   onDeleteTask,
   onViewTaskDetails,
+  onEditTask,
   onCreateTask,
   onQuickCreateTask,
   onAddStatus,
@@ -364,6 +366,7 @@ export const TaskKanban = ({
                 tasks={statusTasks}
                 onDeleteTask={onDeleteTask}
                 onViewTaskDetails={onViewTaskDetails}
+                onEditTask={onEditTask}
                 onCreateTask={onCreateTask}
                 onQuickCreateTask={onQuickCreateTask}
                 onDeleteStatus={statusTasks.length === 0 && onDeleteStatus ? () => onDeleteStatus(status.id) : undefined}

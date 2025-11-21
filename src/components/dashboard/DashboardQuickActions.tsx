@@ -18,27 +18,27 @@ export const DashboardQuickActions = ({
   onOverdueTasks,
 }: DashboardQuickActionsProps) => {
   return (
-    <div className="flex items-center gap-2 p-4 bg-muted/30 rounded-lg border border-border">
-      <Button onClick={onNewProject} size="sm">
-        <Plus className="h-4 w-4 mr-2" />
-        New Project
+    <div className="flex items-center gap-1 flex-1">
+      <Button onClick={onNewProject} size="sm" className="h-7 gap-1 px-2 text-xs">
+        <Plus className="h-3 w-3" />
+        <span>New Project</span>
       </Button>
-      <Button onClick={onNewTask} variant="outline" size="sm">
-        <Plus className="h-4 w-4 mr-2" />
-        New Task
+      <Button onClick={onNewTask} variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs">
+        <Plus className="h-3 w-3" />
+        <span>New Task</span>
       </Button>
-      <div className="h-6 w-px bg-border mx-1" />
-      <Button onClick={onMyTasks} variant="ghost" size="sm">
-        <ListTodo className="h-4 w-4 mr-2" />
-        My Tasks
+      <div className="h-4 w-px bg-border mx-0.5" />
+      <Button onClick={onMyTasks} variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs">
+        <ListTodo className="h-3 w-3" />
+        <span>My Tasks</span>
       </Button>
-      <Button onClick={onTodaysFollowUps} variant="ghost" size="sm">
-        <Flag className="h-4 w-4 mr-2" />
-        Today's Follow-ups
+      <Button onClick={onTodaysFollowUps} variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs">
+        <Flag className="h-3 w-3" />
+        <span>Follow-ups</span>
       </Button>
-      <Button onClick={onOverdueTasks} variant="ghost" size="sm">
-        <AlertCircle className="h-4 w-4 mr-2" />
-        Overdue Tasks
+      <Button onClick={onOverdueTasks} variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs">
+        <AlertCircle className="h-3 w-3" />
+        <span>Overdue</span>
       </Button>
     </div>
   );

@@ -21,6 +21,7 @@ interface TaskColumnProps {
   tasks: Task[];
   onDeleteTask: (id: string) => void;
   onViewTaskDetails?: (task: Task) => void;
+  onEditTask?: (task: Task) => void;
   onCreateTask?: (status: string) => void;
   onQuickCreateTask?: (status: string, title: string, description?: string) => void;
   onDeleteStatus?: () => void;
@@ -35,6 +36,7 @@ export const TaskColumn = ({
   tasks,
   onDeleteTask,
   onViewTaskDetails,
+  onEditTask,
   onCreateTask,
   onQuickCreateTask,
   onDeleteStatus,
@@ -150,6 +152,7 @@ export const TaskColumn = ({
                   projectId={projectId}
                   onDelete={onDeleteTask}
                   onViewDetails={onViewTaskDetails}
+                  onEditTask={onEditTask}
                 />
               ))}
             </SortableContext>
@@ -182,8 +185,9 @@ export const TaskColumn = ({
                 value={newTaskTitle}
                 onChange={(e) => setNewTaskTitle(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && newTaskTitle.trim()) {
-                    // Ctrl/Cmd + Enter to submit
+                  if (e.key === "Enter" && newTaskTitle.trim()) {
+                    // Enter to submit directly
+                    e.preventDefault();
                     if (onQuickCreateTask) {
                       onQuickCreateTask(status, newTaskTitle.trim(), newTaskDescription.trim());
                     }
@@ -204,7 +208,7 @@ export const TaskColumn = ({
                 onChange={(e) => setNewTaskDescription(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && newTaskTitle.trim()) {
-                    // Ctrl/Cmd + Enter to submit
+                    // Ctrl/Cmd + Enter to submit from textarea
                     e.preventDefault();
                     if (onQuickCreateTask) {
                       onQuickCreateTask(status, newTaskTitle.trim(), newTaskDescription.trim());

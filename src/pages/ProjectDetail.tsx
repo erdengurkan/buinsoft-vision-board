@@ -480,6 +480,10 @@ const ProjectDetailInner = () => {
             tasks={project.tasks}
             statuses={taskStatuses}
             onUpdateTask={handleUpdateTask}
+            onEditTask={(task) => {
+              setEditingTask(task);
+              setIsTaskModalOpen(true);
+            }}
             onReorderTasks={(taskOrders) => {
               if (project) {
                 // Capture previous state for undo
@@ -546,7 +550,7 @@ const ProjectDetailInner = () => {
 
       {/* Floating Activity Log Panel */}
       {showActivityLog && (
-        <div className="fixed bottom-4 right-4 z-50 w-[90vw] sm:w-96 max-h-[70vh] bg-background border border-border rounded-lg shadow-2xl flex flex-col">
+        <div className="fixed bottom-4 left-4 z-50 w-[90vw] sm:w-96 max-h-[70vh] bg-background border border-border rounded-lg shadow-2xl flex flex-col">
           <div className="flex items-center justify-between p-3 border-b border-border bg-muted/30">
             <h3 className="text-sm font-semibold flex items-center gap-2">
               <Activity className="h-4 w-4" />
@@ -572,7 +576,7 @@ const ProjectDetailInner = () => {
         <div
           className="fixed bottom-4 z-50 w-[90vw] sm:w-96 max-h-[70vh] bg-background border border-border rounded-lg shadow-2xl flex flex-col"
           style={{
-            right: showActivityLog ? '420px' : '16px',
+            left: showActivityLog ? '420px' : '16px',
             maxWidth: 'calc(100vw - 32px)'
           }}
         >
@@ -718,7 +722,7 @@ const ProjectDetailInner = () => {
         <div
           className="fixed bottom-4 z-50 w-[90vw] sm:w-96 max-h-[70vh] bg-background border border-border rounded-lg shadow-2xl flex flex-col"
           style={{
-            right: `${16 + (showActivityLog ? 420 : 0) + (showTimeSpent ? 420 : 0)}px`,
+            left: `${16 + (showActivityLog ? 420 : 0) + (showTimeSpent ? 420 : 0)}px`,
             maxWidth: 'calc(100vw - 32px)'
           }}
         >
@@ -757,7 +761,7 @@ const ProjectDetailInner = () => {
       )}
 
       {/* Floating Action Buttons - Single Compact Bar */}
-      <div className="fixed bottom-4 right-4 z-40">
+      <div className="fixed bottom-4 left-4 z-40">
         <div className="flex items-center gap-1 bg-card border-2 border-primary/20 rounded-lg shadow-xl p-1.5 backdrop-blur-sm">
           {!showActivityLog && (
             <Button

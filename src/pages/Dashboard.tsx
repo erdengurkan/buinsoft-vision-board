@@ -24,11 +24,20 @@ import { useDashboardFilters } from "@/hooks/useDashboardFilters";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, ChevronDown } from "lucide-react";
+import { MessageSquare, ChevronDown, Plus } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const Dashboard = () => {
   const { projects, updateProject, deleteProject, addProject } = useApp();
-  const { projectStatuses } = useWorkflow();
+  const { projectStatuses, addProjectStatus, updateProjectStatus, deleteProjectStatus } = useWorkflow();
   const { logActivity } = useActivityLog();
   const {
     filters,
@@ -43,7 +52,14 @@ const Dashboard = () => {
   const [activeProject, setActiveProject] = useState<any>(null);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | undefined>(undefined);
-  const [isCommentsCollapsed, setIsCommentsCollapsed] = useState(false);
+  const [isCommentsCollapsed, setIsCommentsCollapsed] = useState(true);
+  
+  // Status management state
+  const [showStatusDialog, setShowStatusDialog] = useState(false);
+  const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
+  const [newStatusName, setNewStatusName] = useState("");
+  const [newStatusColor, setNewStatusColor] = useState("bg-blue-500");
+  const [addStatusPosition, setAddStatusPosition] = useState<'start' | 'end'>('end');
 
   // Get current user (placeholder - in real app this would come from auth)
   const currentUser = "Emre Kılınç";
@@ -308,50 +324,151 @@ const Dashboard = () => {
     toast.success(`"${title}" added to ${status}`);
   };
 
+  const handleEditStatus = (statusId: string) => {
+    const status = projectStatuses.find(s => s.id === statusId);
+    if (status) {
+      setEditingStatusId(statusId);
+      setNewStatusName(status.name);
+      setNewStatusColor(status.color);
+      setShowStatusDialog(true);
+    }
+  };
+
+  const handleAddStatus = () => {
+    setEditingStatusId(null);
+    setNewStatusName("");
+    setNewStatusColor("bg-blue-500");
+    setAddStatusPosition('end');
+    setShowStatusDialog(true);
+  };
+
+  const handleSaveStatus = async () => {
+    if (!newStatusName.trim()) {
+      toast.error("Status name cannot be empty");
+      return;
+    }
+
+    try {
+      if (editingStatusId) {
+        // Update existing status
+        await updateProjectStatus(editingStatusId, {
+          name: newStatusName.trim(),
+          color: newStatusColor,
+        });
+        toast.success("Status updated");
+      } else {
+        // Add new status
+        let order = 0;
+        if (addStatusPosition === 'end') {
+          order = projectStatuses.length > 0
+            ? Math.max(...projectStatuses.map(s => s.order)) + 1
+            : 0;
+        } else {
+          order = 0;
+        }
+
+        await addProjectStatus({
+          name: newStatusName.trim(),
+          color: newStatusColor,
+          order,
+        });
+        toast.success("Status added");
+      }
+
+      setShowStatusDialog(false);
+      setNewStatusName("");
+      setNewStatusColor("bg-blue-500");
+      setEditingStatusId(null);
+    } catch (error: any) {
+      console.error("Error saving status:", error);
+      toast.error(error?.message || "Failed to save status");
+    }
+  };
+
+  const handleDeleteStatus = async (statusId: string) => {
+    const status = projectStatuses.find(s => s.id === statusId);
+    if (!status) return;
+
+    // Check if status is used by any projects
+    const projectsWithStatus = filteredAndSortedProjects.filter(p => p.status === status.name);
+    if (projectsWithStatus.length > 0) {
+      toast.error(`Cannot delete status. ${projectsWithStatus.length} project(s) are using it.`);
+      return;
+    }
+
+    try {
+      await deleteProjectStatus(statusId);
+      toast.success("Status deleted");
+    } catch (error: any) {
+      console.error("Error deleting status:", error);
+      toast.error(error?.message || "Failed to delete status");
+    }
+  };
+
+  const [filtersExpanded, setFiltersExpanded] = useState(true);
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex-none px-6 pt-4 pb-2">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Project Dashboard</h1>
-            <p className="text-muted-foreground mt-1">
-              Manage all your projects in one place
-            </p>
+      <div className="flex-none px-3 pb-1.5 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10">
+        <div className="flex items-center justify-between gap-3 mb-1.5">
+          <h1 className="text-lg font-semibold text-foreground">Project Dashboard</h1>
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAddStatus}
+              className="h-7 gap-1 px-2"
+            >
+              <Plus className="h-3 w-3" />
+              <span className="text-xs">Status</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsCommentsCollapsed(!isCommentsCollapsed)}
+              className={cn("h-7 gap-1 px-2", !isCommentsCollapsed && "bg-accent")}
+            >
+              <MessageSquare className="h-3 w-3" />
+              <span className="text-xs">Comments</span>
+            </Button>
           </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <DashboardQuickActions
+            onNewProject={handleCreateProject}
+            onNewTask={handleNewTask}
+            onMyTasks={handleMyTasks}
+            onTodaysFollowUps={handleTodaysFollowUps}
+            onOverdueTasks={handleOverdueTasks}
+          />
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
-            onClick={() => setIsCommentsCollapsed(!isCommentsCollapsed)}
-            className={cn("gap-2", !isCommentsCollapsed && "bg-accent")}
+            onClick={() => setFiltersExpanded(!filtersExpanded)}
+            className="h-7 text-xs px-2"
           >
-            <MessageSquare className="h-4 w-4" />
-            Comments
+            {filtersExpanded ? "Hide" : "Show"} Filters
           </Button>
         </div>
 
-        <DashboardQuickActions
-          onNewProject={handleCreateProject}
-          onNewTask={handleNewTask}
-          onMyTasks={handleMyTasks}
-          onTodaysFollowUps={handleTodaysFollowUps}
-          onOverdueTasks={handleOverdueTasks}
-        />
-
-        <div className="mt-4">
-          <DashboardFilters
-            filters={filters}
-            sortBy={sortBy}
-            projects={projects}
-            onFilterChange={updateFilter}
-            onToggleFilter={toggleFilter}
-            onSortChange={setSortBy}
-            onClearFilters={clearFilters}
-            hasActiveFilters={hasActiveFilters}
-          />
-        </div>
+        {filtersExpanded && (
+          <div className="pb-1.5">
+            <DashboardFilters
+              filters={filters}
+              sortBy={sortBy}
+              projects={projects}
+              onFilterChange={updateFilter}
+              onToggleFilter={toggleFilter}
+              onSortChange={setSortBy}
+              onClearFilters={clearFilters}
+              hasActiveFilters={hasActiveFilters}
+            />
+          </div>
+        )}
       </div>
 
-      <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden px-6 pb-6">
+      <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCorners}
@@ -366,11 +483,13 @@ const Dashboard = () => {
                 <div key={statusColumn.id} className="w-80 h-full flex flex-col">
                   <KanbanColumn
                     status={statusColumn.name}
+                    statusId={statusColumn.id}
                     statusColor={statusColumn.color}
                     projects={getProjectsByStatus(statusColumn.name)}
                     onDeleteProject={handleDeleteProject}
                     onEditProject={handleEditProject}
                     onQuickCreate={handleQuickCreateProject}
+                    onEditStatus={handleEditStatus}
                   />
                 </div>
               ))}
@@ -415,6 +534,116 @@ const Dashboard = () => {
         project={editingProject}
         onSave={handleSaveProject}
       />
+
+      {/* Status Management Dialog */}
+      <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingStatusId ? "Edit Status" : "Add New Status"}
+            </DialogTitle>
+            <DialogDescription>
+              {editingStatusId 
+                ? "Update the status name and color."
+                : "Create a new project status column for your dashboard."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label>Status Name</Label>
+              <Input
+                value={newStatusName}
+                onChange={(e) => setNewStatusName(e.target.value)}
+                placeholder="e.g., Review, Blocked, On Hold"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newStatusName.trim()) {
+                    handleSaveStatus();
+                  }
+                }}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Color</Label>
+              <div className="flex gap-2 flex-wrap">
+                {[
+                  "bg-blue-500",
+                  "bg-green-500",
+                  "bg-yellow-500",
+                  "bg-orange-500",
+                  "bg-red-500",
+                  "bg-purple-500",
+                  "bg-pink-500",
+                  "bg-indigo-500",
+                  "bg-teal-500",
+                  "bg-cyan-500",
+                ].map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setNewStatusColor(color)}
+                    className={cn(
+                      "w-8 h-8 rounded-full border-2 transition-all",
+                      color,
+                      newStatusColor === color ? "border-foreground scale-110" : "border-transparent"
+                    )}
+                  />
+                ))}
+              </div>
+            </div>
+            {!editingStatusId && (
+              <div className="space-y-2">
+                <Label>Position</Label>
+                <div className="flex gap-2">
+                  <Button
+                    variant={addStatusPosition === 'start' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setAddStatusPosition('start')}
+                    className="flex-1"
+                  >
+                    Add to Start
+                  </Button>
+                  <Button
+                    variant={addStatusPosition === 'end' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setAddStatusPosition('end')}
+                    className="flex-1"
+                  >
+                    Add to End
+                  </Button>
+                </div>
+              </div>
+            )}
+            <div className="flex justify-end gap-2 mt-6">
+              <Button variant="outline" onClick={() => {
+                setShowStatusDialog(false);
+                setNewStatusName("");
+                setNewStatusColor("bg-blue-500");
+                setEditingStatusId(null);
+              }}>
+                Cancel
+              </Button>
+              {editingStatusId && (
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    handleDeleteStatus(editingStatusId);
+                    setShowStatusDialog(false);
+                    setEditingStatusId(null);
+                  }}
+                >
+                  Delete
+                </Button>
+              )}
+              <Button
+                onClick={handleSaveStatus}
+                disabled={!newStatusName.trim()}
+              >
+                {editingStatusId ? "Save Changes" : "Add Status"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

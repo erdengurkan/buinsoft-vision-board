@@ -10,24 +10,34 @@ import { cn } from "@/lib/utils";
 import { getColorFromTailwind } from "@/utils/colorUtils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus } from "lucide-react";
+import { Plus, MoreVertical } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface KanbanColumnProps {
   status: string;
+  statusId?: string;
   statusColor?: string;
   projects: Project[];
   onDeleteProject: (id: string) => void;
   onEditProject: (project: Project) => void;
   onQuickCreate?: (status: string, title: string) => void;
+  onEditStatus?: (statusId: string) => void;
 }
 
 export const KanbanColumn = ({
   status,
+  statusId,
   statusColor = "border-t-primary",
   projects,
   onDeleteProject,
   onEditProject,
   onQuickCreate,
+  onEditStatus,
 }: KanbanColumnProps) => {
   const { setNodeRef } = useDroppable({ id: status });
   const [showAddButton, setShowAddButton] = useState(false);
@@ -52,14 +62,29 @@ export const KanbanColumn = ({
   return (
     <div className="flex flex-col min-w-[320px] flex-1 h-full">
       <div
-        className="mb-4 rounded-lg border-t-4 bg-card p-4 shrink-0"
-        style={{ borderTopColor: getColorFromTailwind(statusColor) }}
+        className="mb-4 rounded-lg bg-card p-4 shrink-0"
       >
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-foreground">{status}</h2>
-          <span className="text-xs text-muted-foreground">
-            {projects.length}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              {projects.length}
+            </span>
+            {onEditStatus && statusId && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-6 w-6">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => onEditStatus(statusId)}>
+                    Edit Status
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
         </div>
       </div>
       <div

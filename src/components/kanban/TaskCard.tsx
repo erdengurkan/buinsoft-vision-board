@@ -13,6 +13,7 @@ interface TaskCardProps {
   projectId: string;
   onDelete: (id: string) => void;
   onViewDetails?: (task: Task) => void;
+  onEditTask?: (task: Task) => void;
 }
 
 const priorityColors: Record<Priority, string> = {
@@ -22,7 +23,7 @@ const priorityColors: Record<Priority, string> = {
   Critical: "bg-red-900 text-white",
 };
 
-export const TaskCard = ({ task, projectId, onDelete, onViewDetails }: TaskCardProps) => {
+export const TaskCard = ({ task, projectId, onDelete, onViewDetails, onEditTask }: TaskCardProps) => {
   const {
     attributes,
     listeners,
@@ -49,12 +50,22 @@ export const TaskCard = ({ task, projectId, onDelete, onViewDetails }: TaskCardP
     onDelete(task.id);
   };
 
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onEditTask) {
+      onEditTask(task);
+    } else if (onViewDetails) {
+      onViewDetails(task);
+    }
+  };
+
   return (
     <div
       ref={setNodeRef}
       style={style}
+      onDoubleClick={handleDoubleClick}
       className={cn(
-        "group relative rounded-lg border bg-card p-3 shadow-sm transition-all hover:shadow-md",
+        "group relative rounded-lg border bg-card p-3 shadow-sm transition-all hover:shadow-md cursor-pointer",
         isDragging && "opacity-50 shadow-lg",
         isBeingWorkedOn 
           ? "border-red-500 border-2 shadow-red-500/20 bg-red-50/50 dark:bg-red-950/20" 

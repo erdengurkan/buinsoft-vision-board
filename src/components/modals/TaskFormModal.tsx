@@ -70,6 +70,12 @@ export const TaskFormModal = ({ open, onOpenChange, task, defaultStatus, onSave 
               id="title"
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !task && formData.title?.trim()) {
+                  e.preventDefault();
+                  handleSubmit(e as any);
+                }
+              }}
               required
             />
           </div>

@@ -91,7 +91,12 @@ export default function Analytics() {
   const upcomingDeadlines = projects
     .flatMap((project) => {
       const projectDeadlines = project.deadline
-        ? [{ type: "project", id: project.id, title: project.title, deadline: project.deadline }]
+        ? [{ 
+            type: "project", 
+            id: project.id, 
+            title: project.title, 
+            deadline: project.deadline instanceof Date ? project.deadline : new Date(project.deadline)
+          }]
         : [];
       const taskDeadlines = project.tasks
         .filter((task) => task.deadline)
@@ -99,33 +104,51 @@ export default function Analytics() {
           type: "task",
           id: task.id,
           title: task.title,
-          deadline: task.deadline!,
+          deadline: task.deadline instanceof Date ? task.deadline : new Date(task.deadline!),
           projectTitle: project.title,
         }));
       return [...projectDeadlines, ...taskDeadlines];
     })
-    .filter((item) => isAfter(item.deadline, startOfToday()))
-    .sort((a, b) => a.deadline.getTime() - b.deadline.getTime())
+    .filter((item) => {
+      const deadlineDate = item.deadline instanceof Date ? item.deadline : new Date(item.deadline);
+      return isAfter(deadlineDate, startOfToday());
+    })
+    .sort((a, b) => {
+      const dateA = a.deadline instanceof Date ? a.deadline : new Date(a.deadline);
+      const dateB = b.deadline instanceof Date ? b.deadline : new Date(b.deadline);
+      return dateA.getTime() - dateB.getTime();
+    })
     .slice(0, 5);
 
   // Overdue items
   const overdueItems = projects
     .flatMap((project) => {
-      const projectOverdue = project.deadline && isPast(project.deadline)
-        ? [{ type: "project", id: project.id, title: project.title, deadline: project.deadline }]
+      const projectDeadline = project.deadline 
+        ? (project.deadline instanceof Date ? project.deadline : new Date(project.deadline))
+        : null;
+      const projectOverdue = projectDeadline && isPast(projectDeadline)
+        ? [{ type: "project", id: project.id, title: project.title, deadline: projectDeadline }]
         : [];
       const taskOverdue = project.tasks
-        .filter((task) => task.deadline && isPast(task.deadline))
+        .filter((task) => {
+          if (!task.deadline) return false;
+          const taskDeadline = task.deadline instanceof Date ? task.deadline : new Date(task.deadline);
+          return isPast(taskDeadline);
+        })
         .map((task) => ({
           type: "task",
           id: task.id,
           title: task.title,
-          deadline: task.deadline!,
+          deadline: task.deadline instanceof Date ? task.deadline : new Date(task.deadline!),
           projectTitle: project.title,
         }));
       return [...projectOverdue, ...taskOverdue];
     })
-    .sort((a, b) => a.deadline.getTime() - b.deadline.getTime());
+    .sort((a, b) => {
+      const dateA = a.deadline instanceof Date ? a.deadline : new Date(a.deadline);
+      const dateB = b.deadline instanceof Date ? b.deadline : new Date(b.deadline);
+      return dateA.getTime() - dateB.getTime();
+    });
 
   // Follow-up required count
   const followUpRequired = projects.filter(
@@ -252,7 +275,7 @@ export default function Analytics() {
                   <XAxis dataKey="name" />
                   <YAxis />
                   <Tooltip />
-                  <Bar dataKey="value" fill="#8884d8">
+                  <Bar dataKey="value">
                     {tasksByPriorityData.map((entry, index) => (
                       <Cell
                         key={`cell-${index}`}
@@ -284,7 +307,7 @@ export default function Analytics() {
                   <XAxis dataKey="name" />
                   <YAxis />
                   <Tooltip />
-                  <Bar dataKey="value" fill="#8884d8">
+                  <Bar dataKey="value">
                     {projectsByStatusData.map((entry, index) => (
                       <Cell
                         key={`cell-${index}`}
@@ -331,7 +354,7 @@ export default function Analytics() {
                       )}
                     </div>
                     <div className="text-sm font-medium">
-                      {format(item.deadline, "MMM d, yyyy")}
+                      {format(item.deadline instanceof Date ? item.deadline : new Date(item.deadline), "MMM d, yyyy")}
                     </div>
                   </div>
                 ))}
@@ -377,7 +400,7 @@ export default function Analytics() {
                     )}
                   </div>
                   <div className="text-sm font-medium text-red-600 dark:text-red-400">
-                    {format(item.deadline, "MMM d, yyyy")}
+                    {format(item.deadline instanceof Date ? item.deadline : new Date(item.deadline), "MMM d, yyyy")}
                   </div>
                 </div>
               ))}
