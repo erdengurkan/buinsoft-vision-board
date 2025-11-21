@@ -37,7 +37,7 @@ import { Label } from "@/components/ui/label";
 
 const Dashboard = () => {
   const { projects, updateProject, deleteProject, addProject } = useApp();
-  const { projectStatuses, addProjectStatus, updateProjectStatus, deleteProjectStatus } = useWorkflow();
+  const { projectStatuses, addProjectStatus, updateProjectStatus, deleteProjectStatus, reorderProjectStatuses } = useWorkflow();
   const { logActivity } = useActivityLog();
   const {
     filters,
@@ -334,13 +334,19 @@ const Dashboard = () => {
     toast.success(`"${title}" added to ${status}`);
   };
 
-  const handleEditStatus = (statusId: string) => {
+  const handleEditStatus = (statusId: string, newName?: string, newColor?: string) => {
     const status = projectStatuses.find(s => s.id === statusId);
     if (status) {
-      setEditingStatusId(statusId);
-      setNewStatusName(status.name);
-      setNewStatusColor(status.color);
-      setShowStatusDialog(true);
+      if (newName !== undefined && newColor !== undefined) {
+        // Inline edit
+        updateProjectStatus(statusId, { name: newName, color: newColor });
+      } else {
+        // Dialog edit (for dropdown menu)
+        setEditingStatusId(statusId);
+        setNewStatusName(status.name);
+        setNewStatusColor(status.color);
+        setShowStatusDialog(true);
+      }
     }
   };
 
@@ -574,20 +580,58 @@ const Dashboard = () => {
               transition: isDragging ? 'none' : 'transform 0.1s ease-out',
             }}
           >
+            {/* Add Status Button - Only show before first status */}
+            {addProjectStatus && (
+              <div className="flex items-start pt-12 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setAddStatusPosition('start');
+                    setShowStatusDialog(true);
+                  }}
+                  className="h-8 w-8 p-0 rounded-full border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/50"
+                  title="Add new status at start"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+
             {projectStatuses
               .sort((a, b) => a.order - b.order)
-              .map((statusColumn) => (
-                <div key={statusColumn.id} className="w-80 h-full flex flex-col">
-                  <KanbanColumn
-                    status={statusColumn.name}
-                    statusId={statusColumn.id}
-                    statusColor={statusColumn.color}
-                    projects={getProjectsByStatus(statusColumn.name)}
-                    onDeleteProject={handleDeleteProject}
-                    onEditProject={handleEditProject}
-                    onQuickCreate={handleQuickCreateProject}
-                    onEditStatus={handleEditStatus}
-                  />
+              .map((statusColumn, index) => (
+                <div key={statusColumn.id} className="flex items-start gap-2 shrink-0">
+                  <div className="w-80 h-full flex flex-col">
+                    <KanbanColumn
+                      status={statusColumn.name}
+                      statusId={statusColumn.id}
+                      statusColor={statusColumn.color}
+                      projects={getProjectsByStatus(statusColumn.name)}
+                      onDeleteProject={handleDeleteProject}
+                      onEditProject={handleEditProject}
+                      onQuickCreate={handleQuickCreateProject}
+                      onEditStatus={handleEditStatus}
+                      onDeleteStatus={getProjectsByStatus(statusColumn.name).length === 0 ? () => handleDeleteStatus(statusColumn.id) : undefined}
+                    />
+                  </div>
+                  {/* Add Status Button after each column (only after last) */}
+                  {addProjectStatus && index === projectStatuses.length - 1 && (
+                    <div className="flex items-start pt-12">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setAddStatusPosition('end');
+                          setShowStatusDialog(true);
+                        }}
+                        className="h-8 w-8 p-0 rounded-full border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/50"
+                        title="Add new status at end"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ))}
           </div>

@@ -33,6 +33,8 @@ export const createProject = async (req: Request, res: Response) => {
                 startDate: new Date(projectData.startDate),
                 endDate: new Date(projectData.endDate),
                 deadline: projectData.deadline ? new Date(projectData.deadline) : null,
+                hardness: projectData.hardness ?? null,
+                benefit: projectData.benefit ?? null,
                 labels: {
                     create: labels?.map((l: any) => ({
                         name: l.name,
@@ -94,6 +96,10 @@ export const updateProject = async (req: Request, res: Response) => {
 
         // Build update data object
         const updateData: any = { ...updates };
+        
+        // Handle hardness and benefit (allow null values)
+        if ('hardness' in updates) updateData.hardness = updates.hardness ?? null;
+        if ('benefit' in updates) updateData.benefit = updates.benefit ?? null;
 
         // Handle tasks if provided
         if (tasks && Array.isArray(tasks)) {

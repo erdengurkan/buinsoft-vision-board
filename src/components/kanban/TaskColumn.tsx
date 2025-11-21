@@ -22,6 +22,7 @@ interface TaskColumnProps {
   onDeleteTask: (id: string) => void;
   onViewTaskDetails?: (task: Task) => void;
   onEditTask?: (task: Task) => void;
+  onUpdateTask?: (taskId: string, updates: Partial<Task>) => void;
   onCreateTask?: (status: string) => void;
   onQuickCreateTask?: (status: string, title: string, description?: string) => void;
   onDeleteStatus?: () => void;
@@ -37,6 +38,7 @@ export const TaskColumn = ({
   onDeleteTask,
   onViewTaskDetails,
   onEditTask,
+  onUpdateTask,
   onCreateTask,
   onQuickCreateTask,
   onDeleteStatus,
@@ -153,6 +155,7 @@ export const TaskColumn = ({
                   onDelete={onDeleteTask}
                   onViewDetails={onViewTaskDetails}
                   onEditTask={onEditTask}
+                  onUpdateTask={onUpdateTask}
                 />
               ))}
             </SortableContext>

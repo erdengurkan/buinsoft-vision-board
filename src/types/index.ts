@@ -39,6 +39,8 @@ export interface Task {
   deadline?: Date;
   followUp: boolean;
   order: number; // Added order field
+  hardness?: number; // 1-5 star rating for difficulty
+  benefit?: number; // 1-5 star rating for value
   worklog?: WorklogEntry[];
   flowDiagram?: FlowDiagram;
 }
@@ -66,6 +68,8 @@ export interface Project {
   labels: Label[];
   description: string;
   order?: number;
+  hardness?: number; // 1-5 star rating for difficulty
+  benefit?: number; // 1-5 star rating for value
   tasks: Task[];
 }
 

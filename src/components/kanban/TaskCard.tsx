@@ -1,12 +1,21 @@
+import { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Task, Priority } from "@/types";
-import { User, Trash2, Workflow, Clock } from "lucide-react";
+import { User, Trash2, Workflow, Clock, Play, UserPlus, Calendar, Flag, Zap, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useActiveTimers } from "@/hooks/useActiveTimers";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { TaskInlineEdit } from "@/components/tasks/TaskInlineEdit";
 
 interface TaskCardProps {
   task: Task;
@@ -14,6 +23,7 @@ interface TaskCardProps {
   onDelete: (id: string) => void;
   onViewDetails?: (task: Task) => void;
   onEditTask?: (task: Task) => void;
+  onUpdateTask?: (taskId: string, updates: Partial<Task>) => void;
 }
 
 const priorityColors: Record<Priority, string> = {
@@ -23,7 +33,7 @@ const priorityColors: Record<Priority, string> = {
   Critical: "bg-red-900 text-white",
 };
 
-export const TaskCard = ({ task, projectId, onDelete, onViewDetails, onEditTask }: TaskCardProps) => {
+export const TaskCard = ({ task, projectId, onDelete, onViewDetails, onEditTask, onUpdateTask }: TaskCardProps) => {
   const {
     attributes,
     listeners,
@@ -32,6 +42,9 @@ export const TaskCard = ({ task, projectId, onDelete, onViewDetails, onEditTask 
     transition,
     isDragging,
   } = useSortable({ id: task.id });
+
+  const [inlineEditOption, setInlineEditOption] = useState<"work" | "assign" | "deadline" | "priority" | "hardness" | "benefit" | null>(null);
+  const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
 
   // Fetch active timers for this project
   const { data: activeTimers = [] } = useActiveTimers(projectId);
@@ -59,29 +72,67 @@ export const TaskCard = ({ task, projectId, onDelete, onViewDetails, onEditTask 
     }
   };
 
+  const handleContextMenuAction = (option: "work" | "assign" | "deadline" | "priority" | "hardness" | "benefit", e?: React.MouseEvent) => {
+    if (e) {
+      setMousePosition({ x: e.clientX, y: e.clientY });
+    }
+    setInlineEditOption(option);
+  };
+
+  const handleSave = (updates: Partial<Task>) => {
+    if (onUpdateTask) {
+      onUpdateTask(task.id, updates);
+    }
+    setInlineEditOption(null);
+  };
+
+  const handleCloseInlineEdit = () => {
+    setInlineEditOption(null);
+  };
+
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      onDoubleClick={handleDoubleClick}
-      className={cn(
-        "group relative rounded-lg border bg-card p-3 shadow-sm transition-all hover:shadow-md cursor-pointer",
-        isDragging && "opacity-50 shadow-lg",
-        isBeingWorkedOn 
-          ? "border-red-500 border-2 shadow-red-500/20 bg-red-50/50 dark:bg-red-950/20" 
-          : "border-border"
-      )}
-    >
-      <div
-        {...attributes}
-        {...listeners}
-        className="drag-handle absolute top-2 right-2 p-1"
-      >
-        <div className="flex flex-col gap-0.5">
-          <div className="h-0.5 w-3 bg-muted-foreground/30 rounded" />
-          <div className="h-0.5 w-3 bg-muted-foreground/30 rounded" />
-        </div>
-      </div>
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div
+          ref={setNodeRef}
+          style={style}
+          onDoubleClick={handleDoubleClick}
+          className={cn(
+            "group relative rounded-lg border bg-card p-3 shadow-sm transition-all hover:shadow-md cursor-pointer",
+            isDragging && "opacity-50 shadow-lg",
+            isBeingWorkedOn 
+              ? "border-red-500 border-2 shadow-red-500/20 bg-red-50/50 dark:bg-red-950/20" 
+              : "border-border"
+          )}
+        >
+          <div
+            {...attributes}
+            {...listeners}
+            className="drag-handle absolute top-2 right-2 p-1"
+          >
+            <div className="flex flex-col gap-0.5">
+              <div className="h-1 w-4 bg-muted-foreground/30 rounded" />
+              <div className="h-1 w-4 bg-muted-foreground/30 rounded" />
+            </div>
+          </div>
+
+          {/* Hardness and Benefit Display */}
+          {(task.hardness || task.benefit) && (
+            <div className="absolute top-10 right-2 text-right space-y-0.5 z-10">
+              {task.hardness && (
+                <div className="text-[10px] leading-tight">
+                  <span>⚡</span>
+                  <span className="ml-0.5">{task.hardness}</span>
+                </div>
+              )}
+              {task.benefit && (
+                <div className="text-[10px] leading-tight">
+                  <span>💎</span>
+                  <span className="ml-0.5">{task.benefit}</span>
+                </div>
+              )}
+            </div>
+          )}
 
       <div className="space-y-1.5 pr-6">
         {isBeingWorkedOn && activeTimer && (
@@ -126,9 +177,9 @@ export const TaskCard = ({ task, projectId, onDelete, onViewDetails, onEditTask 
         </h4>
         {task.description && (
           <div
-            className="text-xs text-muted-foreground line-clamp-2 [&_p]:my-0 [&_p]:inline [&_p:not(:last-child)]:after:content-['_'] [&_br]:hidden [&_*]:text-xs [&_*]:leading-tight"
+            className="text-xs text-muted-foreground whitespace-pre-wrap [&_p]:my-0 [&_*]:text-xs [&_*]:leading-tight"
             dangerouslySetInnerHTML={{
-              __html: task.description.replace(/<p><\/p>/g, '').replace(/<br\s*\/?>/gi, ' '),
+              __html: task.description,
             }}
           />
         )}
@@ -144,14 +195,53 @@ export const TaskCard = ({ task, projectId, onDelete, onViewDetails, onEditTask 
         </div>
       </div>
 
-      <Button
-        variant="ghost"
-        size="icon"
-        className="absolute bottom-2 right-2 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
-        onClick={handleDelete}
-      >
-        <Trash2 className="h-3 w-3 text-destructive" />
-      </Button>
-    </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute bottom-2 right-2 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+            onClick={handleDelete}
+          >
+            <Trash2 className="h-3 w-3 text-destructive" />
+          </Button>
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-48">
+        <ContextMenuItem onClick={(e) => handleContextMenuAction("work", e)}>
+          <Play className="mr-2 h-4 w-4" />
+          <span>Work on this</span>
+        </ContextMenuItem>
+        <ContextMenuItem onClick={(e) => handleContextMenuAction("assign", e)}>
+          <UserPlus className="mr-2 h-4 w-4" />
+          <span>Assign to</span>
+        </ContextMenuItem>
+        <ContextMenuItem onClick={(e) => handleContextMenuAction("deadline", e)}>
+          <Calendar className="mr-2 h-4 w-4" />
+          <span>Set deadline</span>
+        </ContextMenuItem>
+        <ContextMenuItem onClick={(e) => handleContextMenuAction("priority", e)}>
+          <Flag className="mr-2 h-4 w-4" />
+          <span>Change Priority</span>
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={(e) => handleContextMenuAction("hardness", e)}>
+          <Zap className="mr-2 h-4 w-4" />
+          <span>Set Hardness</span>
+        </ContextMenuItem>
+        <ContextMenuItem onClick={(e) => handleContextMenuAction("benefit", e)}>
+          <Sparkles className="mr-2 h-4 w-4" />
+          <span>Set Benefit</span>
+        </ContextMenuItem>
+      </ContextMenuContent>
+      {inlineEditOption && onUpdateTask && (
+        <TaskInlineEdit
+          task={task}
+          projectId={projectId}
+          option={inlineEditOption}
+          onSave={handleSave}
+          onClose={handleCloseInlineEdit}
+          mousePosition={mousePosition}
+        />
+      )}
+    </ContextMenu>
   );
 };

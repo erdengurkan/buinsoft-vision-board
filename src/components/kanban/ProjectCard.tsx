@@ -68,11 +68,29 @@ export const ProjectCard = ({ project, onDelete, onEdit }: ProjectCardProps) => 
     >
       <div {...attributes} {...listeners} className="drag-handle absolute top-2 right-2 p-1">
         <div className="flex flex-col gap-0.5">
-          <div className="h-0.5 w-4 bg-muted-foreground/30 rounded" />
-          <div className="h-0.5 w-4 bg-muted-foreground/30 rounded" />
-          <div className="h-0.5 w-4 bg-muted-foreground/30 rounded" />
+          <div className="h-1 w-4 bg-muted-foreground/30 rounded" />
+          <div className="h-1 w-4 bg-muted-foreground/30 rounded" />
+          <div className="h-1 w-4 bg-muted-foreground/30 rounded" />
         </div>
       </div>
+
+      {/* Hardness and Benefit Display */}
+      {(project.hardness || project.benefit) && (
+        <div className="absolute top-10 right-2 text-right space-y-0.5 z-10">
+          {project.hardness && (
+            <div className="text-[10px] leading-tight">
+              <span>⚡</span>
+              <span className="ml-0.5">{project.hardness}</span>
+            </div>
+          )}
+          {project.benefit && (
+            <div className="text-[10px] leading-tight">
+              <span>💎</span>
+              <span className="ml-0.5">{project.benefit}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="space-y-3">
         {needsFollowUp && (

@@ -93,6 +93,8 @@ export const createTask = async (req: Request, res: Response) => {
         order: maxOrderTask ? maxOrderTask.order + 1 : 0,
         deadline: deadlineDate,
         followUp: taskData.followUp || false,
+        hardness: taskData.hardness ?? null,
+        benefit: taskData.benefit ?? null,
       },
       include: {
         worklogs: true,
@@ -125,6 +127,8 @@ export const updateTask = async (req: Request, res: Response) => {
     if (updates.order !== undefined) updateData.order = updates.order;
     if (updates.followUp !== undefined) updateData.followUp = updates.followUp;
     if (updates.flowDiagram !== undefined) updateData.flowDiagram = updates.flowDiagram;
+    if (updates.hardness !== undefined) updateData.hardness = updates.hardness ?? null;
+    if (updates.benefit !== undefined) updateData.benefit = updates.benefit ?? null;
     
     // Handle date conversions
     if (updates.deadline !== undefined) {

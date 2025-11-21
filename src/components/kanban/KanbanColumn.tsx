@@ -10,13 +10,7 @@ import { cn } from "@/lib/utils";
 import { getColorFromTailwind } from "@/utils/colorUtils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, MoreVertical } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Plus, Trash2 } from "lucide-react";
 
 interface KanbanColumnProps {
   status: string;
@@ -26,7 +20,8 @@ interface KanbanColumnProps {
   onDeleteProject: (id: string) => void;
   onEditProject: (project: Project) => void;
   onQuickCreate?: (status: string, title: string) => void;
-  onEditStatus?: (statusId: string) => void;
+  onEditStatus?: (statusId: string, newName: string, newColor: string) => void;
+  onDeleteStatus?: () => void;
 }
 
 export const KanbanColumn = ({
@@ -38,18 +33,30 @@ export const KanbanColumn = ({
   onEditProject,
   onQuickCreate,
   onEditStatus,
+  onDeleteStatus,
 }: KanbanColumnProps) => {
   const { setNodeRef } = useDroppable({ id: status });
   const [showAddButton, setShowAddButton] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [newProjectTitle, setNewProjectTitle] = useState("");
+  const [isEditingStatus, setIsEditingStatus] = useState(false);
+  const [editedStatusName, setEditedStatusName] = useState(status);
+  const [editedStatusColor, setEditedStatusColor] = useState(statusColor || "bg-blue-500");
   const inputRef = useRef<HTMLInputElement>(null);
+  const statusInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isCreating && inputRef.current) {
       inputRef.current.focus();
     }
   }, [isCreating]);
+
+  useEffect(() => {
+    if (isEditingStatus && statusInputRef.current) {
+      statusInputRef.current.focus();
+      statusInputRef.current.select();
+    }
+  }, [isEditingStatus]);
 
   const handleQuickCreate = () => {
     if (newProjectTitle.trim() && onQuickCreate) {
@@ -62,29 +69,68 @@ export const KanbanColumn = ({
   return (
     <div className="flex flex-col min-w-[320px] flex-1 h-full">
       <div
-        className="mb-4 rounded-lg bg-card p-4 shrink-0"
+        className="mb-4 rounded-lg border-t-4 bg-card p-2 sm:p-3 shrink-0"
+        style={{ borderTopColor: statusColor ? getColorFromTailwind(statusColor) : undefined }}
       >
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-foreground">{status}</h2>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">
-              {projects.length}
-            </span>
-            {onEditStatus && statusId && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-6 w-6">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => onEditStatus(statusId)}>
-                    Edit Status
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-          </div>
+        <div className="flex items-center justify-between gap-2">
+          {isEditingStatus && onEditStatus && statusId ? (
+            <div className="flex items-center gap-2 flex-1">
+              <Input
+                ref={statusInputRef}
+                type="text"
+                value={editedStatusName}
+                onChange={(e) => setEditedStatusName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    onEditStatus(statusId, editedStatusName, editedStatusColor);
+                    setIsEditingStatus(false);
+                  } else if (e.key === 'Escape') {
+                    setEditedStatusName(status);
+                    setIsEditingStatus(false);
+                  }
+                }}
+                className="h-7 text-sm font-semibold"
+                onBlur={() => {
+                  onEditStatus(statusId, editedStatusName, editedStatusColor);
+                  setIsEditingStatus(false);
+                }}
+              />
+            </div>
+          ) : (
+            <h2 
+              className="text-xs sm:text-sm font-semibold text-foreground truncate cursor-pointer hover:opacity-70 transition-opacity flex-1"
+              onDoubleClick={() => {
+                if (onEditStatus && statusId) {
+                  setIsEditingStatus(true);
+                  setEditedStatusName(status);
+                  setEditedStatusColor(statusColor || "bg-blue-500");
+                }
+              }}
+              title={onEditStatus ? "Double-click to edit" : undefined}
+            >
+              {status}
+            </h2>
+          )}
+          {!isEditingStatus && (
+            <>
+              {projects.length === 0 && onDeleteStatus ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteStatus();
+                  }}
+                  className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                  title="Delete status"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              ) : (
+                <span className="text-xs text-muted-foreground ml-2">{projects.length}</span>
+              )}
+            </>
+          )}
         </div>
       </div>
       <div

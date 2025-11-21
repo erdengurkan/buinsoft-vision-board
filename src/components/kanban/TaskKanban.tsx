@@ -433,6 +433,7 @@ export const TaskKanban = ({
                 onDeleteTask={onDeleteTask}
                 onViewTaskDetails={onViewTaskDetails}
                 onEditTask={onEditTask}
+                onUpdateTask={onUpdateTask}
                 onCreateTask={onCreateTask}
                 onQuickCreateTask={onQuickCreateTask}
                 onDeleteStatus={statusTasks.length === 0 && onDeleteStatus ? () => onDeleteStatus(status.id) : undefined}

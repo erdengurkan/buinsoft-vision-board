@@ -13,6 +13,8 @@ export const createProjectSchema = z.object({
   followUp: z.boolean().optional(),
   description: z.string().optional(),
   order: z.number().int().optional(),
+  hardness: z.number().int().min(1).max(5).nullable().optional(),
+  benefit: z.number().int().min(1).max(5).nullable().optional(),
   labels: z.array(z.object({
     name: z.string(),
     color: z.string(),
@@ -32,6 +34,8 @@ export const createTaskSchema = z.object({
   deadline: z.union([z.string(), z.date()]).nullable().optional(),
   followUp: z.boolean().optional().default(false),
   order: z.number().int().optional(),
+  hardness: z.number().int().min(1).max(5).nullable().optional(),
+  benefit: z.number().int().min(1).max(5).nullable().optional(),
 });
 
 export const updateTaskSchema = createTaskSchema
