@@ -553,14 +553,25 @@ const Dashboard = () => {
   };
 
   // Mouse wheel zoom handler (desktop only) - using native event listener to avoid passive listener issue
+  // Use useRef to store the latest values without causing re-renders
+  const isMobileRef = useRef(isMobile);
+  const isLockedRef = useRef(isLocked);
+  
+  // Update refs when values change (without triggering useEffect)
   useEffect(() => {
-    if (isMobile || isLocked) return;
-    
+    isMobileRef.current = isMobile;
+    isLockedRef.current = isLocked;
+  }, [isMobile, isLocked]);
+
+  useEffect(() => {
     const container = kanbanContainerRef.current;
     if (!container) return;
 
-    // Wheel handler for zoom and pan
+    // Wheel handler for zoom and pan - check refs instead of props to avoid re-renders
     const handleWheel = (e: WheelEvent) => {
+      // Skip if mobile or locked (check refs to avoid closure issues)
+      if (isMobileRef.current || isLockedRef.current) return;
+
       // MacBook trackpad pinch gesture (Ctrl/Cmd + wheel = zoom)
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
@@ -601,7 +612,7 @@ const Dashboard = () => {
     return () => {
       container.removeEventListener('wheel', handleWheel);
     };
-  }, [isMobile, isLocked]); // Removed pan.x and pan.y from dependencies to prevent infinite loop
+  }, []); // Empty dependency array - only run once on mount
 
   // Zoom control handlers
   const handleZoomIn = () => {
