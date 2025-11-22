@@ -6,9 +6,7 @@ import { useTaskTimer } from "@/contexts/TaskTimerContext";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { StarRating } from "@/components/ui/star-rating";
@@ -113,7 +111,7 @@ export const TaskInlineEdit = ({
                 <SelectTrigger>
                   <SelectValue placeholder="Select assignee" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="!z-[250]" style={{ zIndex: 250 }}>
                   {teamMembers.map((member) => (
                     <SelectItem key={member.id} value={member.name}>
                       {member.name}
@@ -138,32 +136,19 @@ export const TaskInlineEdit = ({
           <div className="space-y-3 p-3">
             <div className="space-y-2">
               <Label>Set deadline</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !selectedDeadline && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {selectedDeadline ? (
-                      format(selectedDeadline, "PPP")
-                    ) : (
-                      <span>Pick a date</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={selectedDeadline}
-                    onSelect={setSelectedDeadline}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
+              <div className="border rounded-md p-2 bg-popover">
+                <Calendar
+                  mode="single"
+                  selected={selectedDeadline}
+                  onSelect={setSelectedDeadline}
+                  initialFocus
+                />
+              </div>
+              {selectedDeadline && (
+                <p className="text-xs text-muted-foreground">
+                  Selected: {format(selectedDeadline, "PPP")}
+                </p>
+              )}
             </div>
             <div className="flex gap-2 justify-end">
               <Button 
@@ -192,7 +177,7 @@ export const TaskInlineEdit = ({
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="!z-[250]" style={{ zIndex: 250 }}>
                   <SelectItem value="Low">Low</SelectItem>
                   <SelectItem value="Medium">Medium</SelectItem>
                   <SelectItem value="High">High</SelectItem>
@@ -213,7 +198,7 @@ export const TaskInlineEdit = ({
 
       case "hardness":
         return (
-          <div className="space-y-3 p-3 w-48">
+          <div className="space-y-3 p-3 min-w-[200px]">
             <div className="space-y-2">
               <Label>Set Hardness (Difficulty)</Label>
               <StarRating
@@ -251,7 +236,7 @@ export const TaskInlineEdit = ({
 
       case "benefit":
         return (
-          <div className="space-y-3 p-3 w-48">
+          <div className="space-y-3 p-3 min-w-[200px]">
             <div className="space-y-2">
               <Label>Set Benefit (Value)</Label>
               <StarRating
@@ -292,57 +277,56 @@ export const TaskInlineEdit = ({
     }
   };
 
-  // Auto-open popover when component mounts
-  React.useEffect(() => {
-    setOpen(true);
-  }, []);
-
   // Auto-open when component mounts
   React.useEffect(() => {
     setOpen(true);
   }, []);
 
-  // Calculate trigger position from mouse position
-  const triggerStyle: React.CSSProperties = mousePosition 
-    ? {
-        position: 'fixed',
-        left: `${mousePosition.x}px`,
-        top: `${mousePosition.y}px`,
-        width: '1px',
-        height: '1px',
-        opacity: 0,
-        pointerEvents: 'none',
-        zIndex: -1,
-      }
-    : { display: 'none' };
-
-  return (
-    <Popover open={open} onOpenChange={(isOpen) => { 
-      setOpen(isOpen); 
-      if (!isOpen) {
+  // Close on escape key
+  React.useEffect(() => {
+    if (!open) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setOpen(false);
         onClose();
       }
-    }}>
-      <PopoverTrigger asChild>
-        <button aria-hidden="true" style={triggerStyle} />
-      </PopoverTrigger>
-      <PopoverContent 
-        className="p-0 w-auto z-[100]" 
-        align="start"
-        side="right"
-        sideOffset={5}
-        onInteractOutside={(e) => {
-          setOpen(false);
-          onClose();
-        }}
-        onEscapeKeyDown={() => {
-          setOpen(false);
-          onClose();
-        }}
-      >
-        {renderContent()}
-      </PopoverContent>
-    </Popover>
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [open, onClose]);
+
+  // Close on outside click
+  React.useEffect(() => {
+    if (!open || !mousePosition) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-inline-edit-popover]')) {
+        setOpen(false);
+        onClose();
+      }
+    };
+    // Use timeout to avoid immediate close
+    setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+    }, 100);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open, mousePosition, onClose]);
+
+  if (!open || !mousePosition) return null;
+
+  return (
+    <div
+      data-inline-edit-popover
+      className="fixed z-[150] rounded-md border bg-popover shadow-md p-0 w-auto max-w-[90vw] max-h-[90vh] overflow-y-auto"
+      style={{
+        left: `${mousePosition.x + 10}px`,
+        top: `${mousePosition.y}px`,
+        transform: 'none',
+      }}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      {renderContent()}
+    </div>
   );
 };
 

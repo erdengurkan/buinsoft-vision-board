@@ -222,7 +222,7 @@ export const Header = () => {
       {/* Right: Search and User Menu */}
       <div className="flex items-center gap-3 shrink-0 ml-auto">
         {/* Version Number */}
-        <span className="text-xs font-semibold text-primary font-mono bg-primary/10 px-2 py-1 rounded">v1.0.1</span>
+        <span className="text-xs font-semibold text-primary font-mono bg-primary/10 px-2 py-1 rounded">v1.0.2</span>
         
         {/* Search - Icon only, expands on click */}
         {isSearchOpen ? (

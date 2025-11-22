@@ -1,4 +1,5 @@
 import { useState } from "react";
+import * as React from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Task, Priority } from "@/types";
@@ -73,11 +74,43 @@ export const TaskCard = ({ task, projectId, onDelete, onViewDetails, onEditTask,
   };
 
   const handleContextMenuAction = (option: "work" | "assign" | "deadline" | "priority" | "hardness" | "benefit", e?: React.MouseEvent) => {
-    if (e) {
-      setMousePosition({ x: e.clientX, y: e.clientY });
-    }
+    // Get position from the menu item that was clicked - use setTimeout to ensure context menu is still in DOM
+    setTimeout(() => {
+      if (e && e.currentTarget) {
+        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        // Position popover to the right of the menu item
+        setMousePosition({ 
+          x: rect.right + 10, 
+          y: rect.top 
+        });
+      } else {
+        // Fallback: try to get context menu position
+        const contextMenu = document.querySelector('[data-radix-context-menu-content]');
+        if (contextMenu) {
+          const rect = contextMenu.getBoundingClientRect();
+          setMousePosition({ x: rect.right + 10, y: rect.top });
+        } else {
+          // Last resort: use stored mouse position
+          const lastEvent = (window as any).__lastMouseEvent;
+          if (lastEvent) {
+            setMousePosition({ x: lastEvent.clientX + 10, y: lastEvent.clientY });
+          }
+        }
+      }
+    }, 0);
     setInlineEditOption(option);
   };
+
+  // Track mouse position globally for context menu
+  React.useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      (window as any).__lastMouseEvent = e;
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, []);
 
   const handleSave = (updates: Partial<Task>) => {
     if (onUpdateTask) {
