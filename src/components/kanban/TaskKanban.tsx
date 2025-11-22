@@ -60,6 +60,8 @@ export const TaskKanban = ({
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const kanbanContentRef = useRef<HTMLDivElement>(null);
+  const isPanningRef = useRef(false); // Use useRef for isPanning to avoid closure issues
+  const hasPushedStateRef = useRef(false); // Track if we've pushed state to avoid infinite loop
   
   // Zoom and Pan states
   const [zoom, setZoom] = useState(0.75); // Default zoom at 75%
@@ -197,15 +199,14 @@ export const TaskKanban = ({
     if (!container) return;
 
     // Prevent browser back/forward navigation on swipe (MacBook trackpad)
-    // Use a ref to track if we're actively panning (ref doesn't cause re-renders)
-    const isPanningRef = { current: false };
-    
     const handlePopState = (e: PopStateEvent) => {
       // Only prevent if we're actively panning
       if (isPanningRef.current) {
-        e.preventDefault();
-        // Push current state to prevent navigation
-        window.history.pushState(null, '', window.location.href);
+        // Don't call preventDefault on popstate - it doesn't work
+        // Instead, push state back if we're panning
+        if (hasPushedStateRef.current) {
+          window.history.pushState({ preventBack: true }, '', window.location.href);
+        }
       }
     };
 
@@ -258,10 +259,10 @@ export const TaskKanban = ({
     container.addEventListener('wheel', handleWheel, { passive: false });
     window.addEventListener('popstate', handlePopState);
     
-    // Push state to prevent back navigation (only once on mount)
-    const hasPushedState = window.history.state !== null;
-    if (!hasPushedState) {
+    // Push state to prevent back navigation (only once on mount, and only if not already pushed)
+    if (!hasPushedStateRef.current) {
       window.history.pushState({ preventBack: true }, '', window.location.href);
+      hasPushedStateRef.current = true;
     }
     
     return () => {

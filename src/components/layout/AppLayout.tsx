@@ -25,7 +25,7 @@ export const AppLayout = () => {
   useEffect(() => {
     // Save preference to localStorage
     if (!isMobile) {
-      localStorage.setItem('sidebarCollapsed', JSON.stringify(isSidebarCollapsed));
+    localStorage.setItem('sidebarCollapsed', JSON.stringify(isSidebarCollapsed));
     }
   }, [isSidebarCollapsed, isMobile]);
 

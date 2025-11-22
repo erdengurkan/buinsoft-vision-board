@@ -425,12 +425,12 @@ export const TaskDetailModal = ({
                     onContextMenu={(e) => e.preventDefault()}
                   />
                 ) : (
-                  <RichTextEditor
-                    content={formData.description || ""}
-                    onChange={(html) => setFormData({ ...formData, description: html })}
-                    placeholder="Add a description..."
+                <RichTextEditor
+                  content={formData.description || ""}
+                  onChange={(html) => setFormData({ ...formData, description: html })}
+                  placeholder="Add a description..."
                     className="min-h-[100px] sm:min-h-[150px] md:min-h-[200px]"
-                  />
+                />
                 )
               ) : (
                 <div
@@ -451,26 +451,26 @@ export const TaskDetailModal = ({
           {/* Right Column: Comments - Hidden on mobile */}
           {!isMobile && (
             <div className="md:col-span-1 order-2 md:order-2">
-              {project && (
+            {project && (
                 <div className="space-y-1 sm:space-y-2">
-                  <Comments
-                    projectId={project.id}
-                    taskId={task.id}
-                    comments={taskComments}
-                    onAddComment={(text) => {
-                      addComment(project.id, task.id, text);
-                      logActivity(
-                        project.id,
-                        "task_edited",
-                        `Comment added on task "${task.title}"`,
-                        { taskId: task.id }
-                      );
-                    }}
-                    onDeleteComment={deleteComment}
-                  />
+              <Comments
+                projectId={project.id}
+                taskId={task.id}
+                comments={taskComments}
+                onAddComment={(text) => {
+                  addComment(project.id, task.id, text);
+                  logActivity(
+                    project.id,
+                    "task_edited",
+                    `Comment added on task "${task.title}"`,
+                    { taskId: task.id }
+                  );
+                }}
+                onDeleteComment={deleteComment}
+              />
                 </div>
-              )}
-            </div>
+            )}
+          </div>
           )}
         </div>
 
@@ -515,7 +515,7 @@ export const TaskDetailModal = ({
                     <Workflow className="h-3 w-3 sm:h-4 sm:w-4" />
                     <span className="hidden sm:inline">Edit Flow</span>
                     <span className="sm:hidden">Flow</span>
-                  </Button>
+                </Button>
                 )}
                 <Button 
                   onClick={handleSave} 
@@ -546,7 +546,7 @@ export const TaskDetailModal = ({
                     <Workflow className="h-3 w-3 sm:h-4 sm:w-4" />
                     <span className="hidden sm:inline">Edit Flow</span>
                     <span className="sm:hidden">Flow</span>
-                  </Button>
+                </Button>
                 )}
               </>
             )}
@@ -591,7 +591,7 @@ export const TaskDetailModal = ({
             }}
           >
             {modalContent}
-          </DialogContent>
+      </DialogContent>
         </Dialog>
       )}
 
