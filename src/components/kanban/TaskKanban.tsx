@@ -89,46 +89,6 @@ export const TaskKanban = ({
     })
   );
 
-  // Mouse wheel zoom handler (desktop only) - using native event listener to avoid passive listener issue
-  useEffect(() => {
-    if (isMobile || isLocked) return;
-    
-    const container = scrollContainerRef.current;
-    if (!container) return;
-
-    const handleWheel = (e: WheelEvent) => {
-      // MacBook trackpad pinch gesture (Ctrl/Cmd + wheel = zoom)
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        const delta = e.deltaY > 0 ? -0.1 : 0.1;
-        setZoom((prevZoom) => {
-          const newZoom = Math.max(0.5, Math.min(2.0, prevZoom + delta));
-          return newZoom;
-        });
-        return;
-      }
-      
-      // Two-finger swipe on MacBook (deltaX) should pan, not zoom
-      // Only zoom if it's a vertical scroll (deltaY) without Ctrl/Cmd
-      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-        // Vertical scroll = zoom
-        e.preventDefault();
-        const delta = e.deltaY > 0 ? -0.1 : 0.1;
-        setZoom((prevZoom) => {
-          const newZoom = Math.max(0.5, Math.min(2.0, prevZoom + delta));
-          return newZoom;
-        });
-      }
-      // Horizontal scroll (deltaX) = pan (handled by native scroll or drag)
-    };
-
-    container.addEventListener('wheel', handleWheel, { passive: false });
-    
-    return () => {
-      container.removeEventListener('wheel', handleWheel);
-    };
-  }, [isMobile, isLocked, zoom]);
-
   // Mouse drag-to-pan functionality (desktop only)
   const handleMouseDown = (e: React.MouseEvent) => {
     if (isMobile) return;
@@ -240,7 +200,7 @@ export const TaskKanban = ({
       // MacBook trackpad pinch gesture (Ctrl/Cmd + wheel = zoom)
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
-        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        const delta = e.deltaY > 0 ? -0.03 : 0.03; // Slower zoom (was 0.1)
         setZoom((prevZoom) => {
           const newZoom = Math.max(0.5, Math.min(2.0, prevZoom + delta));
           return newZoom;
@@ -263,7 +223,7 @@ export const TaskKanban = ({
       if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
         // Vertical scroll = zoom
         e.preventDefault();
-        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        const delta = e.deltaY > 0 ? -0.03 : 0.03; // Slower zoom (was 0.1)
         setZoom((prevZoom) => {
           const newZoom = Math.max(0.5, Math.min(2.0, prevZoom + delta));
           return newZoom;
@@ -281,12 +241,12 @@ export const TaskKanban = ({
   // Zoom control handlers
   const handleZoomIn = () => {
     if (isLocked) return;
-    setZoom((prev) => Math.min(2.0, prev + 0.1));
+    setZoom((prev) => Math.min(2.0, prev + 0.05)); // Slower zoom (was 0.1)
   };
 
   const handleZoomOut = () => {
     if (isLocked) return;
-    setZoom((prev) => Math.max(0.5, prev - 0.1));
+    setZoom((prev) => Math.max(0.5, prev - 0.05)); // Slower zoom (was 0.1)
   };
 
   const handleFitView = () => {
