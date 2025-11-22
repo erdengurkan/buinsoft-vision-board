@@ -560,12 +560,12 @@ const Dashboard = () => {
     if (!container) return;
 
     // Prevent browser back/forward navigation on swipe (MacBook trackpad)
-    // Use a flag to track if we're actively panning
-    let isPanning = false;
+    // Use a ref to track if we're actively panning (ref doesn't cause re-renders)
+    const isPanningRef = { current: false };
     
     const handlePopState = (e: PopStateEvent) => {
       // Only prevent if we're actively panning
-      if (isPanning) {
+      if (isPanningRef.current) {
         e.preventDefault();
         // Push current state to prevent navigation
         window.history.pushState(null, '', window.location.href);
@@ -576,10 +576,10 @@ const Dashboard = () => {
     const handleWheel = (e: WheelEvent) => {
       // Track panning state for horizontal scroll
       if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-        isPanning = true;
+        isPanningRef.current = true;
         // Reset flag after a short delay
         setTimeout(() => {
-          isPanning = false;
+          isPanningRef.current = false;
         }, 100);
       }
 
@@ -621,8 +621,11 @@ const Dashboard = () => {
     container.addEventListener('wheel', handleWheel, { passive: false });
     window.addEventListener('popstate', handlePopState);
     
-    // Push state to prevent back navigation
-    window.history.pushState(null, '', window.location.href);
+    // Push state to prevent back navigation (only once on mount)
+    const hasPushedState = window.history.state !== null;
+    if (!hasPushedState) {
+      window.history.pushState({ preventBack: true }, '', window.location.href);
+    }
     
     return () => {
       container.removeEventListener('wheel', handleWheel);
