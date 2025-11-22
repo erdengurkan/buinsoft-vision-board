@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { Task, Priority } from "@/types";
 import { TaskWorklog } from "@/components/tasks/TaskWorklog";
 import { Comments } from "@/components/comments/Comments";
@@ -17,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -25,6 +27,7 @@ import { toast } from "sonner";
 import { teamMembers } from "@/data/mockData";
 import { useWorkflow } from "@/contexts/WorkflowContext";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const API_URL = import.meta.env.VITE_API_URL || "/api";
 
@@ -57,6 +60,7 @@ export const TaskDetailModal = ({
   const { activeTimer, stopTimer } = useTaskTimer();
   const { taskStatuses } = useWorkflow();
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
 
   // Task mutation - MUST be before conditional returns (Rules of Hooks)
   const updateTaskMutation = useMutation({
@@ -216,45 +220,53 @@ export const TaskDetailModal = ({
     setPendingClose(false);
   };
 
-  return (
-    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
-      <DialogContent 
-        className="max-w-6xl max-h-[90vh] overflow-y-auto" 
-        onInteractOutside={(e) => {
-          if (isEditing && hasChanges()) {
-            e.preventDefault();
-            handleCloseRequest();
-          }
-        }}
-        onEscapeKeyDown={(e) => {
-          if (isEditing && hasChanges()) {
-            e.preventDefault();
-            handleCloseRequest();
-          }
-        }}
-      >
-        <DialogHeader>
-          <DialogDescription className="text-sm text-muted-foreground">
+  // Modal content component (reusable for both Dialog and Drawer)
+  const modalContent = (
+    <>
+      {/* Header */}
+      {isMobile ? (
+        <DrawerHeader className="pb-2">
+          <DrawerTitle className="text-sm font-semibold">{task.title}</DrawerTitle>
+          <DrawerDescription className="text-[10px] text-muted-foreground">
+            {projectTitle ? `Project: ${projectTitle}` : "Task details"}
+          </DrawerDescription>
+        </DrawerHeader>
+      ) : (
+        <DialogHeader className="pb-1 sm:pb-2 md:pb-4">
+          <DialogDescription className="text-[10px] sm:text-xs md:text-sm text-muted-foreground">
             {projectTitle ? `Project: ${projectTitle}` : "Task details"}
           </DialogDescription>
         </DialogHeader>
+      )}
 
-        <div className="grid grid-cols-3 gap-6">
+      <div className={cn(
+        "overflow-y-auto",
+        isMobile ? "px-3 pb-3 max-h-[calc(75vh-80px)]" : "p-2 sm:p-3 md:p-6"
+      )}>
+
+        <div className={cn(
+          isMobile ? "space-y-2" : "grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-3 md:gap-6"
+        )}>
           {/* Left Column: Task Info, Title, Description */}
-          <div className="col-span-2 space-y-6">
-            {/* Task Info - Moved to top */}
-            <div className="grid grid-cols-2 gap-4 p-4 border border-border rounded-lg">
-              <div className="space-y-2">
-                <Label className="text-sm text-muted-foreground">Status</Label>
+          <div className={cn(
+            isMobile ? "space-y-2" : "md:col-span-2 space-y-2 sm:space-y-3 md:space-y-6 order-1"
+          )}>
+            {/* Task Info - Kompakt mobilde */}
+            <div className={cn(
+              "border border-border rounded-lg",
+              isMobile ? "grid grid-cols-2 gap-1.5 p-2" : "grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 p-2 sm:p-3 md:p-4"
+            )}>
+              <div className={cn("space-y-1", isMobile ? "space-y-0.5" : "sm:space-y-2")}>
+                <Label className={cn("text-muted-foreground", isMobile ? "text-[9px]" : "text-[10px] sm:text-xs md:text-sm")}>Status</Label>
                 {isEditing ? (
                   <Select 
                     value={formData.status} 
                     onValueChange={(value) => setFormData({ ...formData, status: value })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className={cn(isMobile && "h-7 text-[10px]")}>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent side={isMobile ? "top" : "bottom"} align="start" className={cn(isMobile && "max-h-[40vh]")}>
                       {taskStatuses.map((status) => (
                         <SelectItem key={status.id} value={status.name}>
                           {status.name}
@@ -263,20 +275,20 @@ export const TaskDetailModal = ({
                     </SelectContent>
                   </Select>
                 ) : (
-                  <Badge variant="outline">{task.status}</Badge>
+                  <Badge variant="outline" className={cn(isMobile && "text-[9px] px-1.5 py-0.5")}>{task.status}</Badge>
                 )}
               </div>
-              <div className="space-y-2">
-                <Label className="text-sm text-muted-foreground">Priority</Label>
+              <div className={cn("space-y-1", isMobile ? "space-y-0.5" : "sm:space-y-2")}>
+                <Label className={cn("text-muted-foreground", isMobile ? "text-[9px]" : "text-[10px] sm:text-xs md:text-sm")}>Priority</Label>
                 {isEditing ? (
                   <Select 
                     value={formData.priority} 
                     onValueChange={(value) => setFormData({ ...formData, priority: value as Priority })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className={cn(isMobile && "h-7 text-[10px]")}>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent side={isMobile ? "top" : "bottom"} align="start" className={cn(isMobile && "max-h-[40vh]")}>
                       <SelectItem value="Low">Low</SelectItem>
                       <SelectItem value="Medium">Medium</SelectItem>
                       <SelectItem value="High">High</SelectItem>
@@ -284,20 +296,20 @@ export const TaskDetailModal = ({
                     </SelectContent>
                   </Select>
                 ) : (
-                  <Badge className={cn("px-2 py-0.5", priorityColors[task.priority])}>{task.priority}</Badge>
+                  <Badge className={cn("px-2 py-0.5", priorityColors[task.priority], isMobile && "text-[9px] px-1.5")}>{task.priority}</Badge>
                 )}
               </div>
-              <div className="space-y-2">
-                <Label className="text-sm text-muted-foreground">Assignee</Label>
+              <div className={cn("space-y-1", isMobile ? "space-y-0.5" : "sm:space-y-2")}>
+                <Label className={cn("text-muted-foreground", isMobile ? "text-[9px]" : "text-[10px] sm:text-xs md:text-sm")}>Assignee</Label>
                 {isEditing ? (
                   <Select 
                     value={formData.assignee} 
                     onValueChange={(value) => setFormData({ ...formData, assignee: value })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className={cn(isMobile && "h-7 text-[10px]")}>
                       <SelectValue placeholder="Select assignee" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent side={isMobile ? "top" : "bottom"} align="start" className={cn(isMobile && "max-h-[40vh]")}>
                       {teamMembers.map((member) => (
                         <SelectItem key={member.id} value={member.name}>
                           {member.name}
@@ -306,20 +318,20 @@ export const TaskDetailModal = ({
                     </SelectContent>
                   </Select>
                 ) : (
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4" />
-                    <span>{task.assignee}</span>
+                  <div className="flex items-center gap-1.5">
+                    <User className={cn("text-muted-foreground", isMobile ? "h-3 w-3" : "h-4 w-4")} />
+                    <span className={cn(isMobile && "text-[10px]")}>{task.assignee}</span>
                   </div>
                 )}
               </div>
-              <div className="space-y-2">
-                <Label className="text-sm text-muted-foreground">Deadline</Label>
+              <div className={cn("space-y-1", isMobile ? "space-y-0.5" : "sm:space-y-2")}>
+                <Label className={cn("text-muted-foreground", isMobile ? "text-[9px]" : "text-[10px] sm:text-xs md:text-sm")}>Deadline</Label>
                 {isEditing ? (
                   <Popover open={deadlinePopoverOpen} onOpenChange={setDeadlinePopoverOpen}>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal")}>
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {formData.deadline ? format(formData.deadline, "PPP") : <span>Optional</span>}
+                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal", isMobile && "h-7 text-[10px] px-2")}>
+                        <CalendarIcon className={cn("mr-1.5", isMobile ? "h-3 w-3" : "mr-2 h-4 w-4")} />
+                        {formData.deadline ? format(formData.deadline, isMobile ? "MMM d" : "PPP") : <span>Optional</span>}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
@@ -328,7 +340,7 @@ export const TaskDetailModal = ({
                         selected={formData.deadline}
                         onSelect={(date) => {
                           setFormData({ ...formData, deadline: date });
-                          setDeadlinePopoverOpen(false); // Close popover when date is selected
+                          setDeadlinePopoverOpen(false);
                         }}
                         initialFocus
                       />
@@ -336,12 +348,12 @@ export const TaskDetailModal = ({
                   </Popover>
                 ) : (
                   task.deadline ? (
-                    <div className="flex items-center gap-2">
-                      <CalendarIcon className="h-4 w-4" />
-                      <span>{format(task.deadline, "MMM d, yyyy")}</span>
+                    <div className="flex items-center gap-1.5">
+                      <CalendarIcon className={cn("text-muted-foreground", isMobile ? "h-3 w-3" : "h-4 w-4")} />
+                      <span className={cn(isMobile && "text-[10px]")}>{format(task.deadline, isMobile ? "MMM d" : "MMM d, yyyy")}</span>
                     </div>
                   ) : (
-                    <span className="text-muted-foreground text-sm">No deadline</span>
+                    <span className={cn("text-muted-foreground", isMobile ? "text-[9px]" : "text-sm")}>No deadline</span>
                   )
                 )}
               </div>
@@ -356,20 +368,27 @@ export const TaskDetailModal = ({
               )}
             </div>
 
-            {/* Title - Moved above Description */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Title</Label>
+            {/* Title */}
+            <div className={cn("space-y-1", isMobile ? "space-y-0.5" : "sm:space-y-2")}>
+              <Label className={cn("font-medium", isMobile ? "text-[9px]" : "text-[10px] sm:text-xs md:text-sm")}>Title</Label>
               {isEditing ? (
                 <Input
                   value={formData.title || ""}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="text-xl font-semibold"
+                  className={cn(
+                    "font-semibold",
+                    isMobile ? "text-xs h-7" : "text-sm sm:text-base md:text-lg h-8 sm:h-10"
+                  )}
                   placeholder="Task title"
+                  onContextMenu={(e) => isMobile && e.preventDefault()}
                 />
               ) : (
-                <div className="text-xl font-semibold flex items-center gap-2">
+                <div className={cn(
+                  "font-semibold flex items-center gap-2",
+                  isMobile ? "text-xs" : "text-sm sm:text-base md:text-lg"
+                )}>
                   {task.title}
-                  {task.flowDiagram && (
+                  {task.flowDiagram && !isMobile && (
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -392,55 +411,77 @@ export const TaskDetailModal = ({
               )}
             </div>
 
-            {/* Description */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Description</Label>
+            {/* Description - Basit textarea mobilde */}
+            <div className={cn("space-y-1", isMobile ? "space-y-0.5" : "sm:space-y-2")}>
+              <Label className={cn("font-medium", isMobile ? "text-[9px]" : "text-[10px] sm:text-xs md:text-sm")}>Description</Label>
               {isEditing ? (
-                <RichTextEditor
-                  content={formData.description || ""}
-                  onChange={(html) => setFormData({ ...formData, description: html })}
-                  placeholder="Add a description..."
-                  className="min-h-[200px]"
-                />
+                isMobile ? (
+                  <Textarea
+                    value={formData.description || ""}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Add a description..."
+                    rows={3}
+                    className="text-[10px] resize-none min-h-[60px]"
+                    onContextMenu={(e) => e.preventDefault()}
+                  />
+                ) : (
+                  <RichTextEditor
+                    content={formData.description || ""}
+                    onChange={(html) => setFormData({ ...formData, description: html })}
+                    placeholder="Add a description..."
+                    className="min-h-[100px] sm:min-h-[150px] md:min-h-[200px]"
+                  />
+                )
               ) : (
                 <div
-                  className="text-sm text-muted-foreground p-3 bg-muted/30 rounded-lg min-h-[60px] prose prose-sm max-w-none prose-p:my-1 prose-p:first:mt-0 prose-p:last:mb-0 prose-headings:my-2 prose-headings:first:mt-0 prose-ul:my-2 prose-ol:my-2 prose-li:my-0"
+                  className={cn(
+                    "text-muted-foreground bg-muted/30 rounded-lg prose prose-sm max-w-none prose-p:my-0.5 prose-p:first:mt-0 prose-p:last:mb-0 prose-headings:my-1 prose-headings:first:mt-0 prose-ul:my-1 prose-ol:my-1 prose-li:my-0",
+                    isMobile ? "text-[9px] p-1.5 min-h-[40px]" : "text-[10px] sm:text-xs md:text-sm p-1.5 sm:p-2 md:p-3 min-h-[40px] sm:min-h-[50px] md:min-h-[60px]"
+                  )}
                   dangerouslySetInnerHTML={{
                     __html: task.description || "<p class='text-muted-foreground italic'>No description</p>",
                   }}
+                  onContextMenu={(e) => isMobile && e.preventDefault()}
                 />
               )}
             </div>
 
           </div>
 
-          {/* Right Column: Comments */}
-          <div className="col-span-1">
-            {project && (
-              <Comments
-                projectId={project.id}
-                taskId={task.id}
-                comments={taskComments}
-                onAddComment={(text) => {
-                  addComment(project.id, task.id, text);
-                  logActivity(
-                    project.id,
-                    "task_edited",
-                    `Comment added on task "${task.title}"`,
-                    { taskId: task.id }
-                  );
-                }}
-                onDeleteComment={deleteComment}
-              />
-            )}
-          </div>
+          {/* Right Column: Comments - Hidden on mobile */}
+          {!isMobile && (
+            <div className="md:col-span-1 order-2 md:order-2">
+              {project && (
+                <div className="space-y-1 sm:space-y-2">
+                  <Comments
+                    projectId={project.id}
+                    taskId={task.id}
+                    comments={taskComments}
+                    onAddComment={(text) => {
+                      addComment(project.id, task.id, text);
+                      logActivity(
+                        project.id,
+                        "task_edited",
+                        `Comment added on task "${task.title}"`,
+                        { taskId: task.id }
+                      );
+                    }}
+                    onDeleteComment={deleteComment}
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Bottom Bar: Timer on left, Cancel/Save buttons on right */}
-        <div className="flex items-center justify-between pt-4 mt-4 border-t border-border">
-          {/* Left: Timer - Single line with Start button, time, and total */}
-          {project && (
-            <div className="flex items-center gap-3">
+        <div className={cn(
+          "flex items-stretch justify-between border-t border-border",
+          isMobile ? "flex-col gap-1.5 pt-2 mt-2" : "flex-col sm:flex-row items-center gap-1.5 sm:gap-2 md:gap-3 pt-2 sm:pt-3 md:pt-4 mt-2 sm:mt-3 md:mt-4"
+        )}>
+          {/* Left: Timer - Hidden on mobile */}
+          {project && !isMobile && (
+            <div className="flex items-center gap-3 flex-shrink-0">
               <TaskWorklog
                 taskId={task.id}
                 projectId={project.id}
@@ -453,35 +494,106 @@ export const TaskDetailModal = ({
           )}
 
           {/* Right: Cancel and Save Changes buttons */}
-          <div className="flex items-center gap-2">
+          <div className={cn(
+            "flex items-stretch",
+            isMobile ? "flex-row gap-1.5" : "flex-col sm:flex-row items-center gap-1.5 sm:gap-2 w-full sm:w-auto"
+          )}>
             {isEditing ? (
               <>
-                <Button variant="outline" onClick={handleCloseRequest}>
+                <Button 
+                  variant="outline" 
+                  onClick={handleCloseRequest} 
+                  className={cn(
+                    isMobile ? "flex-1 h-8 text-[10px]" : "w-full sm:w-auto h-8 sm:h-9 md:min-h-[44px] text-xs sm:text-sm"
+                  )}
+                  onContextMenu={(e) => isMobile && e.preventDefault()}
+                >
                   Cancel
                 </Button>
-                <Button variant="outline" onClick={handleOpenFlow} className="gap-2">
-                  <Workflow className="h-4 w-4" />
-                  Edit Flow
-                </Button>
-                <Button onClick={handleSave}>
-                  Save Changes
+                {!isMobile && (
+                  <Button variant="outline" onClick={handleOpenFlow} className="gap-1 sm:gap-2 w-full sm:w-auto h-8 sm:h-9 md:min-h-[44px] text-xs sm:text-sm">
+                    <Workflow className="h-3 w-3 sm:h-4 sm:w-4" />
+                    <span className="hidden sm:inline">Edit Flow</span>
+                    <span className="sm:hidden">Flow</span>
+                  </Button>
+                )}
+                <Button 
+                  onClick={handleSave} 
+                  className={cn(
+                    isMobile ? "flex-1 h-8 text-[10px]" : "w-full sm:w-auto h-8 sm:h-9 md:min-h-[44px] text-xs sm:text-sm"
+                  )}
+                  onContextMenu={(e) => isMobile && e.preventDefault()}
+                >
+                  Save
                 </Button>
               </>
             ) : (
               <>
-                <Button variant="outline" onClick={() => setIsEditing(true)} className="gap-2">
-                  <Edit2 className="h-4 w-4" />
-                  Edit Task
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsEditing(true)} 
+                  className={cn(
+                    isMobile ? "flex-1 h-8 text-[10px]" : "gap-1 sm:gap-2 w-full sm:w-auto h-8 sm:h-9 md:min-h-[44px] text-xs sm:text-sm"
+                  )}
+                  onContextMenu={(e) => isMobile && e.preventDefault()}
+                >
+                  <Edit2 className={cn(isMobile ? "h-3 w-3" : "h-3 w-3 sm:h-4 sm:w-4")} />
+                  <span className={isMobile ? "" : "hidden sm:inline"}>Edit Task</span>
+                  {isMobile && <span>Edit</span>}
                 </Button>
-                <Button variant="outline" onClick={handleOpenFlow} className="gap-2">
-                  <Workflow className="h-4 w-4" />
-                  Edit Flow
-                </Button>
+                {!isMobile && (
+                  <Button variant="outline" onClick={handleOpenFlow} className="gap-1 sm:gap-2 w-full sm:w-auto h-8 sm:h-9 md:min-h-[44px] text-xs sm:text-sm">
+                    <Workflow className="h-3 w-3 sm:h-4 sm:w-4" />
+                    <span className="hidden sm:inline">Edit Flow</span>
+                    <span className="sm:hidden">Flow</span>
+                  </Button>
+                )}
               </>
             )}
           </div>
         </div>
-      </DialogContent>
+      </div>
+    </>
+  );
+
+  return (
+    <>
+      {isMobile ? (
+        <Drawer open={open} onOpenChange={handleDialogOpenChange}>
+          <DrawerContent 
+            className="max-h-[75vh]"
+            onInteractOutside={(e) => {
+              if (isEditing && hasChanges()) {
+                e.preventDefault();
+                handleCloseRequest();
+              }
+            }}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            {modalContent}
+          </DrawerContent>
+        </Drawer>
+      ) : (
+        <Dialog open={open} onOpenChange={handleDialogOpenChange}>
+          <DialogContent 
+            className="max-w-[98vw] sm:max-w-2xl md:max-w-4xl lg:max-w-6xl max-h-[98vh] sm:max-h-[90vh] overflow-y-auto p-2 sm:p-3 md:p-6" 
+            onInteractOutside={(e) => {
+              if (isEditing && hasChanges()) {
+                e.preventDefault();
+                handleCloseRequest();
+              }
+            }}
+            onEscapeKeyDown={(e) => {
+              if (isEditing && hasChanges()) {
+                e.preventDefault();
+                handleCloseRequest();
+              }
+            }}
+          >
+            {modalContent}
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Unsaved Changes Confirmation Dialog */}
       <Dialog 
@@ -509,29 +621,31 @@ export const TaskDetailModal = ({
               You have unsaved changes. Do you want to save them before closing?
             </DialogDescription>
           </DialogHeader>
-          <div className="flex items-center justify-end gap-3 mt-6">
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 mt-6">
             <Button
               variant="outline"
               onClick={handleCancelUnsavedDialog}
+              className="w-full sm:w-auto min-h-[44px]"
             >
               Cancel
             </Button>
             <Button
               variant="outline"
               onClick={handleDiscardAndClose}
-              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              className="text-destructive hover:text-destructive hover:bg-destructive/10 w-full sm:w-auto min-h-[44px]"
             >
               Don't Save
             </Button>
             <Button
               onClick={handleSaveAndClose}
+              className="w-full sm:w-auto min-h-[44px]"
             >
               Save
             </Button>
           </div>
         </DialogContent>
       </Dialog>
-    </Dialog>
+    </>
   );
 };
 

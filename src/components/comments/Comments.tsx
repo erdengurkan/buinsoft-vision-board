@@ -97,39 +97,39 @@ export const Comments = ({
 
   return (
     <Card className="h-full flex flex-col">
-      <CardHeader className="flex-shrink-0 pb-3">
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <MessageSquare className="h-4 w-4" />
+      <CardHeader className="flex-shrink-0 pb-1 sm:pb-2 md:pb-3">
+        <CardTitle className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm md:text-lg">
+          <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4" />
           Comments
         </CardTitle>
-        <CardDescription className="text-xs">
+        <CardDescription className="text-[10px] sm:text-xs">
           {filteredComments.length} comment{filteredComments.length !== 1 ? "s" : ""}
           {taskId ? " on this task" : " (including task comments)"}
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col space-y-3 min-h-0">
+      <CardContent className="flex-1 flex flex-col space-y-1.5 sm:space-y-2 md:space-y-3 min-h-0 p-2 sm:p-4 md:p-6">
         {/* Comments List - Üstte, scroll edilebilir */}
         {filteredComments.length > 0 ? (
-          <div className="flex-1 overflow-y-auto space-y-2.5 pr-2">
+          <div className="flex-1 overflow-y-auto space-y-1.5 sm:space-y-2 md:space-y-2.5 pr-1 sm:pr-2">
             {filteredComments
               .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
               .map((comment) => (
-                <div key={comment.id} className="space-y-1.5">
-                  <div className="p-2.5 rounded-md border border-border/50 bg-muted/20 hover:bg-muted/40 transition-colors">
-                    <div className="flex items-start gap-2">
+                <div key={comment.id} className="space-y-1 sm:space-y-1.5">
+                  <div className="p-1.5 sm:p-2 md:p-2.5 rounded-md border border-border/50 bg-muted/20 hover:bg-muted/40 transition-colors">
+                    <div className="flex items-start gap-1 sm:gap-2">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <User className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                          <span className="text-xs font-semibold">{comment.user}</span>
-                          <span className="text-[10px] text-muted-foreground">
+                        <div className="flex items-center gap-1 sm:gap-1.5 mb-0.5 sm:mb-1">
+                          <User className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground flex-shrink-0" />
+                          <span className="text-[10px] sm:text-xs font-semibold">{comment.user}</span>
+                          <span className="text-[9px] sm:text-[10px] text-muted-foreground">
                             {format(comment.timestamp, "MMM d, HH:mm")}
                           </span>
                         </div>
                         {comment.taskId && (
-                          <div className="mb-1.5 ml-5">
+                          <div className="mb-1 sm:mb-1.5 ml-3 sm:ml-5">
                             <Badge
                               variant="outline"
-                              className="cursor-pointer hover:bg-primary/10 hover:border-primary transition-colors text-[10px] px-1.5 py-0 h-4"
+                              className="cursor-pointer hover:bg-primary/10 hover:border-primary transition-colors text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0 h-3 sm:h-4"
                               onClick={() => onTaskClick?.(comment.taskId!)}
                             >
                               Task: {(() => {
@@ -140,7 +140,7 @@ export const Comments = ({
                             </Badge>
                           </div>
                         )}
-                        <p className="text-xs text-foreground whitespace-pre-wrap ml-5 break-words leading-relaxed">
+                        <p className="text-[10px] sm:text-xs text-foreground whitespace-pre-wrap ml-3 sm:ml-5 break-words leading-relaxed">
                           {comment.text}
                         </p>
                       </div>
@@ -151,10 +151,10 @@ export const Comments = ({
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                                className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground hover:text-foreground"
                                 onClick={() => handleReply(comment.id)}
                               >
-                                <Reply className="h-3 w-3" />
+                                <Reply className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>
@@ -169,10 +169,10 @@ export const Comments = ({
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                  className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground hover:text-destructive"
                                   onClick={() => onDeleteComment(comment.id)}
                                 >
-                                  <Trash2 className="h-3 w-3" />
+                                  <Trash2 className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>
@@ -187,17 +187,17 @@ export const Comments = ({
 
                   {/* Reply Input - Kompakt inline */}
                   {replyingTo === comment.id && (
-                    <div className="ml-5 pl-3 border-l-2 border-primary/30">
+                    <div className="ml-3 sm:ml-5 pl-2 sm:pl-3 border-l-2 border-primary/30">
                       <form
                         onSubmit={(e) => handleSubmitReply(e, comment.id)}
-                        className="flex items-end gap-1.5"
+                        className="flex items-end gap-1 sm:gap-1.5"
                       >
                         <Textarea
                           value={replyText}
                           onChange={(e) => setReplyText(e.target.value)}
                           placeholder={`Reply to ${comment.user}...`}
                           rows={1}
-                          className="resize-none text-xs min-h-[28px] py-1.5 px-2 flex-1"
+                          className="resize-none text-[10px] sm:text-xs min-h-[24px] sm:min-h-[28px] py-1 sm:py-1.5 px-1.5 sm:px-2 flex-1"
                           autoFocus
                           onKeyDown={(e) => {
                             if (e.key === "Escape") {
@@ -205,7 +205,7 @@ export const Comments = ({
                             }
                           }}
                         />
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-0.5 sm:gap-1">
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -213,10 +213,10 @@ export const Comments = ({
                                   type="button"
                                   variant="ghost"
                                   size="icon"
-                                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                  className="h-6 w-6 sm:h-7 sm:w-7 text-muted-foreground hover:text-foreground"
                                   onClick={handleCancelReply}
                                 >
-                                  <X className="h-3.5 w-3.5" />
+                                  <X className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>
@@ -230,10 +230,10 @@ export const Comments = ({
                                 <Button
                                   type="submit"
                                   size="icon"
-                                  className="h-7 w-7"
+                                  className="h-6 w-6 sm:h-7 sm:w-7"
                                   disabled={isSubmitting || !replyText.trim()}
                                 >
-                                  <Send className="h-3.5 w-3.5" />
+                                  <Send className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>
@@ -258,18 +258,18 @@ export const Comments = ({
         )}
 
         {/* Comment Input - Altta, sabit */}
-        <div className="flex-shrink-0 border-t pt-3">
-          <form onSubmit={handleSubmit} className="space-y-2">
+        <div className="flex-shrink-0 border-t pt-1.5 sm:pt-2 md:pt-3">
+          <form onSubmit={handleSubmit} className="space-y-1 sm:space-y-1.5 md:space-y-2">
             <Textarea
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
               placeholder="Add a comment..."
-              rows={2}
-              className="resize-none text-sm"
+              rows={1}
+              className="resize-none text-[10px] sm:text-xs md:text-sm min-h-[32px] sm:min-h-[40px] py-1 sm:py-1.5 px-2"
             />
             <div className="flex justify-end">
-              <Button type="submit" size="sm" disabled={isSubmitting || !newComment.trim()}>
-                Post Comment
+              <Button type="submit" size="sm" disabled={isSubmitting || !newComment.trim()} className="h-7 sm:h-8 md:h-9 text-[10px] sm:text-xs md:text-sm">
+                Post
               </Button>
             </div>
           </form>
