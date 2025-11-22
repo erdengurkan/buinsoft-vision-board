@@ -38,7 +38,7 @@ export const Header = ({ onMenuClick, isMobile: isMobileProp }: HeaderProps = {}
   const navigate = useNavigate();
   const location = useLocation();
   const { projects, updateProject } = useApp();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const detectedMobile = useIsMobile();
   const isMobile = isMobileProp !== undefined ? isMobileProp : detectedMobile;
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -52,7 +52,8 @@ export const Header = ({ onMenuClick, isMobile: isMobileProp }: HeaderProps = {}
   const needsFollowUp = project ? hasFollowUpNeeded(project.tasks) : false;
 
   const handleLogout = () => {
-    navigate("/");
+    logout(); // Clear user state and localStorage
+    navigate("/", { replace: true }); // Navigate to login page
   };
 
   const handleProfileClick = () => {
