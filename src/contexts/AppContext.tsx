@@ -65,7 +65,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     refetchOnWindowFocus: false, // Don't refetch on window focus
     refetchOnMount: true, // Only refetch on mount
     retry: 2, // Retry failed requests
-    placeholderData: [], // Use empty array as placeholder when disabled
+    // Don't show error if user is not loaded yet (will be handled by ProtectedRoute)
+    throwOnError: false,
   });
 
   const addProjectMutation = useMutation({

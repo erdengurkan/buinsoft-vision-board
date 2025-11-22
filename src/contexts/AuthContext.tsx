@@ -31,6 +31,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (stored) {
       try {
         const userData = JSON.parse(stored);
+        // Parse Date strings back to Date objects
+        if (userData.createdAt) {
+          userData.createdAt = new Date(userData.createdAt);
+        }
         setUserState(userData);
       } catch (error) {
         console.error("Failed to parse user from localStorage:", error);
