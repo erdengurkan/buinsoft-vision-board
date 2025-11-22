@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -76,7 +76,15 @@ const Dashboard = () => {
 
   // Mobile pinch-to-zoom states
   const [touchStartDistance, setTouchStartDistance] = useState<number | null>(null);
-  const [touchStartZoom, setTouchStartZoom] = useState(0.75);
+  const touchStartZoomRef = useRef(0.75);
+  
+  // Use refs for zoom to avoid re-renders in touch handlers
+  const zoomRef = useRef(zoom);
+  
+  // Update zoomRef when zoom changes
+  useEffect(() => {
+    zoomRef.current = zoom;
+  }, [zoom]);
 
   // Get current user from auth context
   const { user: authUser } = useAuth();
@@ -517,8 +525,8 @@ const Dashboard = () => {
     setIsDragging(false);
   };
 
-  // Mobile touch pinch-to-zoom handlers
-  const handleTouchStart = (e: React.TouchEvent) => {
+  // Mobile touch pinch-to-zoom handlers - use useCallback and refs to prevent re-renders
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (!isMobile || isLocked) return;
     
     if (e.touches.length === 2) {
@@ -527,12 +535,12 @@ const Dashboard = () => {
         e.touches[0].clientY - e.touches[1].clientY
       );
       setTouchStartDistance(distance);
-      setTouchStartZoom(zoom);
+      touchStartZoomRef.current = zoomRef.current; // Use ref instead of state
       e.preventDefault(); // Prevent browser zoom
     }
-  };
+  }, [isMobile, isLocked]);
 
-  const handleTouchMove = (e: React.TouchEvent) => {
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (!isMobile || isLocked) return;
     
     if (e.touches.length === 2 && touchStartDistance !== null) {
@@ -541,16 +549,16 @@ const Dashboard = () => {
         e.touches[0].clientY - e.touches[1].clientY
       );
       const scale = distance / touchStartDistance;
-      const newZoom = Math.max(0.5, Math.min(2.0, touchStartZoom * scale));
+      const newZoom = Math.max(0.5, Math.min(2.0, touchStartZoomRef.current * scale));
       setZoom(newZoom);
       e.preventDefault(); // Prevent browser zoom
     }
-  };
+  }, [isMobile, isLocked, touchStartDistance]);
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = useCallback(() => {
     if (!isMobile) return;
     setTouchStartDistance(null);
-  };
+  }, [isMobile]);
 
   // Mouse wheel zoom handler (desktop only) - using native event listener to avoid passive listener issue
   // Use useRef to store the latest values without causing re-renders
