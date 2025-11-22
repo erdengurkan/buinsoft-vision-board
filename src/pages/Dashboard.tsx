@@ -36,7 +36,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 const Dashboard = () => {
-  const { projects, updateProject, deleteProject, addProject } = useApp();
+  const { projects, updateProject, deleteProject, addProject, isLoading: projectsLoading } = useApp();
   const { projectStatuses, addProjectStatus, updateProjectStatus, deleteProjectStatus, reorderProjectStatuses } = useWorkflow();
   const { logActivity } = useActivityLog();
   const {
@@ -422,6 +422,34 @@ const Dashboard = () => {
   };
 
   const [filtersExpanded, setFiltersExpanded] = useState(true);
+
+  // Show loading state
+  if (projectsLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+          <p className="text-sm text-muted-foreground">Loading projects...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show empty state if no projects
+  if (!projectsLoading && projects.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full">
+        <div className="text-center">
+          <h2 className="text-xl font-bold mb-2">No projects yet</h2>
+          <p className="text-sm text-muted-foreground mb-4">Create your first project to get started</p>
+          <Button onClick={handleCreateProject}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Project
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // Mouse wheel zoom handler
   const handleWheel = (e: React.WheelEvent) => {

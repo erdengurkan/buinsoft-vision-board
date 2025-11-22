@@ -101,6 +101,35 @@ export const createTask = async (req: Request, res: Response) => {
       },
     });
 
+    // If task has an assignee, create a Todo automatically
+    if (task.assignee && task.assignee.trim() !== '') {
+      try {
+        // Check if Todo already exists for this task
+        const existingTodo = await prisma.todo.findFirst({
+          where: { taskId: task.id },
+        });
+
+        if (!existingTodo) {
+          await prisma.todo.create({
+            data: {
+              title: task.title,
+              completed: false,
+              deadline: deadlineDate,
+              taskId: task.id,
+              taskTitle: task.title,
+              order: 0,
+              mentions: [],
+            },
+          });
+          console.log(`✅ Created Todo for task ${task.id} with assignee ${task.assignee}`);
+        }
+      } catch (error) {
+        console.error(`❌ Error creating Todo for task ${task.id}:`, error);
+      }
+    } else {
+      console.log(`⚠️ Task ${task.id} has no assignee, skipping Todo creation`);
+    }
+
     // Broadcast update to all connected clients
     sseManager.broadcastProjectUpdate(projectId);
 
@@ -137,6 +166,12 @@ export const updateTask = async (req: Request, res: Response) => {
         : null;
     }
 
+    // Get task before update to check assignee changes
+    const oldTask = await prisma.task.findUnique({
+      where: { id },
+      select: { assignee: true, title: true },
+    });
+
     const task = await prisma.task.update({
       where: { id },
       data: updateData,
@@ -150,6 +185,53 @@ export const updateTask = async (req: Request, res: Response) => {
         },
       },
     });
+
+    // Handle Todo creation/update when assignee is set or changed
+    if (task.assignee && task.assignee.trim() !== '') {
+      // Check if Todo already exists for this task
+      const existingTodo = await prisma.todo.findFirst({
+        where: { taskId: task.id },
+      });
+
+      const deadlineDate = task.deadline 
+        ? (task.deadline instanceof Date ? task.deadline : new Date(task.deadline))
+        : null;
+
+      if (existingTodo) {
+        // Update existing Todo
+        await prisma.todo.update({
+          where: { id: existingTodo.id },
+          data: {
+            title: task.title,
+            deadline: deadlineDate,
+            taskTitle: task.title,
+          },
+        });
+      } else {
+        // Create new Todo
+        await prisma.todo.create({
+          data: {
+            title: task.title,
+            completed: false,
+            deadline: deadlineDate,
+            taskId: task.id,
+            taskTitle: task.title,
+            order: 0,
+            mentions: [],
+          },
+        });
+      }
+    } else if (oldTask?.assignee && (!task.assignee || task.assignee.trim() === '')) {
+      // If assignee was removed, delete the associated Todo
+      const todoToDelete = await prisma.todo.findFirst({
+        where: { taskId: task.id },
+      });
+      if (todoToDelete) {
+        await prisma.todo.delete({
+          where: { id: todoToDelete.id },
+        });
+      }
+    }
 
     // Broadcast update to all connected clients
     if (task.project?.id) {

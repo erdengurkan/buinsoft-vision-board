@@ -22,6 +22,8 @@ model Project {
   order       Int       @default(0)
   hardness    Int?      // 1-5 star rating for difficulty
   benefit     Int?      // 1-5 star rating for value
+  sharedWithAll Boolean @default(true)  // Herkes görebilsin mi?
+  sharedWith    String[]                // Paylaşılan kullanıcı isimleri listesi
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -79,6 +81,8 @@ model Todo {
   deadline  DateTime?
   order     Int?
   mentions  String[]
+  taskId    String?   // İlişkili task ID'si
+  taskTitle String?   // Task başlığı (hızlı erişim için)
 }
 
 model WorkflowStatus {
@@ -105,7 +109,11 @@ model User {
   email     String   @unique
   password  String
   name      String?
+  role      String?  // Job role: "Lead Developer", "Senior Developer", etc.
+  userRole  String   @default("User") // Permission role: "Admin" or "User"
+  avatar    String?  // Avatar URL
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Comment {
@@ -138,5 +146,15 @@ model ActiveTimer {
   createdAt DateTime @default(now())
   
   task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  name      String   // Required
+  company   String?
+  email     String?
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 

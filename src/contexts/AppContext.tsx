@@ -2,6 +2,7 @@ import React, { createContext, useContext, ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Project } from "@/types";
 import { toast } from "sonner";
+import { useAuth } from "./AuthContext";
 
 interface AppContextType {
   projects: Project[];
@@ -18,21 +19,33 @@ const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   // Note: SSE is handled globally in AppWithSSE component, not here
 
   const { data: projects = [], isLoading } = useQuery({
-    queryKey: ["projects"],
+    queryKey: ["projects", user?.name],
     queryFn: async () => {
-      const res = await fetch(`${API_URL}/projects`);
-      if (!res.ok) throw new Error("Failed to fetch projects");
+      const url = new URL(`${API_URL}/projects`, window.location.origin);
+      if (user?.name) {
+        url.searchParams.append("userName", user.name);
+      }
+      console.log("🔍 Fetching projects from:", url.toString());
+      const res = await fetch(url.toString());
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("❌ Failed to fetch projects:", res.status, errorText);
+        throw new Error(`Failed to fetch projects: ${res.status}`);
+      }
       const data = await res.json();
+      console.log("✅ Projects fetched:", data.length, "projects");
       // Parse date strings to Date objects
       return data.map((project: any) => ({
         ...project,
         startDate: new Date(project.startDate),
         endDate: new Date(project.endDate),
-        tasks: project.tasks?.map((task: any) => ({
+        deadline: project.deadline ? new Date(project.deadline) : undefined,
+        tasks: (project.tasks || []).map((task: any) => ({
           ...task,
           deadline: task.deadline ? new Date(task.deadline) : undefined,
           createdAt: task.createdAt ? new Date(task.createdAt) : new Date(),
@@ -47,9 +60,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         })),
       }));
     },
+    enabled: !!user, // Only fetch when user is loaded
     staleTime: 30000, // Consider data fresh for 30 seconds
     refetchOnWindowFocus: false, // Don't refetch on window focus
     refetchOnMount: true, // Only refetch on mount
+    retry: 2, // Retry failed requests
   });
 
   const addProjectMutation = useMutation({

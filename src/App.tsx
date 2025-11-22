@@ -8,9 +8,13 @@ import { AppProvider } from "./contexts/AppContext";
 import { WorkflowProvider } from "./contexts/WorkflowContext";
 import { TaskTimerProvider } from "./contexts/TaskTimerContext";
 import { TodoProvider } from "./contexts/TodoContext";
+import { AuthProvider } from "./contexts/AuthContext";
+import { UserProvider } from "./contexts/UserContext";
+import { CustomerProvider } from "./contexts/CustomerContext";
 import { AppLayout } from "./components/layout/AppLayout";
 import { GlobalTimerBar } from "./components/timer/GlobalTimerBar";
 import { TimerOutline } from "./components/timer/TimerOutline";
+import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { cn } from "./lib/utils";
 import { useGlobalSSE } from "./hooks/useGlobalSSE";
 import Login from "./pages/Login";
@@ -43,7 +47,13 @@ const AppWithSSE = () => {
         <GlobalTimerBar />
         <Routes>
           <Route path="/" element={<Login />} />
-          <Route element={<AppLayout />}>
+          <Route
+            element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          >
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/project/:id" element={<ProjectDetail />} />
             <Route
@@ -71,19 +81,25 @@ const AppWithSSE = () => {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AppProvider>
-      <WorkflowProvider>
-        <TaskTimerProvider>
-          <TodoProvider>
-            <TooltipProvider>
-              <Toaster />
-              <Sonner />
-              <AppWithSSE />
-            </TooltipProvider>
-          </TodoProvider>
-        </TaskTimerProvider>
-      </WorkflowProvider>
-    </AppProvider>
+    <AuthProvider>
+      <AppProvider>
+        <WorkflowProvider>
+          <TaskTimerProvider>
+            <TodoProvider>
+              <UserProvider>
+                <CustomerProvider>
+                  <TooltipProvider>
+                    <Toaster />
+                    <Sonner />
+                    <AppWithSSE />
+                  </TooltipProvider>
+                </CustomerProvider>
+              </UserProvider>
+            </TodoProvider>
+          </TaskTimerProvider>
+        </WorkflowProvider>
+      </AppProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 

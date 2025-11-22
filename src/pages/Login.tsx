@@ -1,16 +1,25 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Login = () => {
   const navigate = useNavigate();
+  const { user, setUser, isLoading: authLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // Redirect to dashboard if already logged in
+  useEffect(() => {
+    if (!authLoading && user) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [user, authLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,11 +34,18 @@ const Login = () => {
       const API_URL = import.meta.env.VITE_API_URL || "/api";
       console.log("🔐 Login attempt:", { email, API_URL });
       
+      // Create AbortController for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
       const res = await fetch(`${API_URL}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
 
       console.log("📡 Login response status:", res.status);
 
@@ -41,11 +57,20 @@ const Login = () => {
       const data = await res.json();
       console.log("✅ Login successful:", data.user?.name);
 
+      // Save user to context and localStorage
+      if (data.user) {
+        setUser(data.user);
+      }
+
       toast.success(`Welcome back, ${data.user.name || "User"}!`);
       navigate("/dashboard");
     } catch (error: any) {
       console.error("❌ Login error:", error);
-      toast.error(error.message || "Invalid credentials");
+      if (error.name === 'AbortError') {
+        toast.error("Request timeout. Please check your connection and try again.");
+      } else {
+        toast.error(error.message || "Invalid credentials");
+      }
     } finally {
       setIsLoading(false);
     }

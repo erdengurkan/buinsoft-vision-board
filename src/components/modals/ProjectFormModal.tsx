@@ -8,13 +8,15 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, X } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { CalendarIcon, X, Users } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Project, Priority, ProjectStatus } from "@/types";
 import { useState, useEffect } from "react";
 import { teamMembers } from "@/data/mockData";
 import { useWorkflow } from "@/contexts/WorkflowContext";
+import { useQuery } from "@tanstack/react-query";
 
 interface ProjectFormModalProps {
   open: boolean;
@@ -23,8 +25,22 @@ interface ProjectFormModalProps {
   onSave: (project: Partial<Project>) => void;
 }
 
+const API_URL = import.meta.env.VITE_API_URL || "/api";
+
 export const ProjectFormModal = ({ open, onOpenChange, project, onSave }: ProjectFormModalProps) => {
   const { projectStatuses, labels: availableLabels } = useWorkflow();
+  const [sharedWithOpen, setSharedWithOpen] = useState(false);
+  
+  // Fetch users from API
+  const { data: users = [] } = useQuery({
+    queryKey: ["users"],
+    queryFn: async () => {
+      const res = await fetch(`${API_URL}/users`);
+      if (!res.ok) throw new Error("Failed to fetch users");
+      return res.json();
+    },
+  });
+
   const [formData, setFormData] = useState<Partial<Project>>({
     title: "",
     client: "",
@@ -37,11 +53,17 @@ export const ProjectFormModal = ({ open, onOpenChange, project, onSave }: Projec
     deadline: undefined,
     followUp: false,
     labels: [],
+    sharedWithAll: true,
+    sharedWith: [],
   });
 
   useEffect(() => {
     if (project) {
-      setFormData(project);
+      setFormData({
+        ...project,
+        sharedWithAll: project.sharedWithAll !== undefined ? project.sharedWithAll : true,
+        sharedWith: project.sharedWith || [],
+      });
     } else {
       setFormData({
         title: "",
@@ -55,9 +77,11 @@ export const ProjectFormModal = ({ open, onOpenChange, project, onSave }: Projec
         deadline: undefined,
         followUp: false,
         labels: [],
+        sharedWithAll: true,
+        sharedWith: [],
       });
     }
-  }, [project, open]);
+  }, [project, open, projectStatuses]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,6 +103,21 @@ export const ProjectFormModal = ({ open, onOpenChange, project, onSave }: Projec
       setFormData({
         ...formData,
         labels: [...(formData.labels || []), label],
+      });
+    }
+  };
+
+  const toggleSharedUser = (userName: string) => {
+    const currentShared = formData.sharedWith || [];
+    if (currentShared.includes(userName)) {
+      setFormData({
+        ...formData,
+        sharedWith: currentShared.filter((u) => u !== userName),
+      });
+    } else {
+      setFormData({
+        ...formData,
+        sharedWith: [...currentShared, userName],
       });
     }
   };
@@ -261,6 +300,81 @@ export const ProjectFormModal = ({ open, onOpenChange, project, onSave }: Projec
             <Label htmlFor="followUp" className="cursor-pointer">
               Requires Follow-up
             </Label>
+          </div>
+
+          {/* Shared With Section */}
+          <div className="space-y-3 border-t pt-4">
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="sharedWithAll"
+                checked={formData.sharedWithAll !== false}
+                onCheckedChange={(checked) => {
+                  setFormData({
+                    ...formData,
+                    sharedWithAll: checked,
+                    sharedWith: checked ? [] : formData.sharedWith || [],
+                  });
+                }}
+              />
+              <Label htmlFor="sharedWithAll" className="cursor-pointer">
+                Share with all users
+              </Label>
+            </div>
+
+            {!formData.sharedWithAll && (
+              <div className="space-y-2">
+                <Label>Share with specific users</Label>
+                <Popover open={sharedWithOpen} onOpenChange={setSharedWithOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        (!formData.sharedWith || formData.sharedWith.length === 0) && "text-muted-foreground"
+                      )}
+                    >
+                      <Users className="mr-2 h-4 w-4" />
+                      {formData.sharedWith && formData.sharedWith.length > 0
+                        ? `${formData.sharedWith.length} user${formData.sharedWith.length > 1 ? "s" : ""} selected`
+                        : "Select users"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 p-2" align="start">
+                    <div className="space-y-1 max-h-64 overflow-y-auto">
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Select users</div>
+                      {users.map((user: any) => (
+                        <div
+                          key={user.id}
+                          className="flex items-center gap-2 px-2 py-1.5 hover:bg-muted rounded-md cursor-pointer"
+                          onClick={() => toggleSharedUser(user.name || user.email)}
+                        >
+                          <Checkbox
+                            checked={formData.sharedWith?.includes(user.name || user.email) || false}
+                            onCheckedChange={() => toggleSharedUser(user.name || user.email)}
+                          />
+                          <span className="text-sm">{user.name || user.email}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                {formData.sharedWith && formData.sharedWith.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {formData.sharedWith.map((userName) => (
+                      <Badge key={userName} variant="secondary" className="text-xs">
+                        {userName}
+                        <button
+                          onClick={() => toggleSharedUser(userName)}
+                          className="ml-1 hover:text-destructive"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-2 pt-4">

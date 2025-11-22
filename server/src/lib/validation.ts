@@ -76,3 +76,37 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
+// User schemas
+export const createUserSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  name: z.string().min(1, 'Name is required').max(100),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  role: z.string().max(100).optional().nullable(),
+  userRole: z.enum(['Admin', 'User']).default('User'),
+  avatar: z.string().url('Invalid avatar URL').optional().nullable().or(z.literal('')),
+});
+
+export const updateUserSchema = z.object({
+  email: z.string().email('Invalid email address').optional(),
+  name: z.string().min(1, 'Name is required').max(100).optional(),
+  password: z.string().min(6, 'Password must be at least 6 characters').optional(),
+  role: z.string().max(100).optional().nullable(),
+  userRole: z.enum(['Admin', 'User']).optional().nullable(),
+  avatar: z.string().url('Invalid avatar URL').optional().nullable().or(z.literal('')),
+});
+
+// Customer schemas
+export const createCustomerSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(100),
+  company: z.string().max(100).optional().nullable(),
+  email: z.string().email('Invalid email address').optional().nullable().or(z.literal('')),
+  phone: z.string().max(20).optional().nullable(),
+});
+
+export const updateCustomerSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(100).optional(),
+  company: z.string().max(100).optional().nullable(),
+  email: z.string().email('Invalid email address').optional().nullable().or(z.literal('')),
+  phone: z.string().max(20).optional().nullable(),
+});
+

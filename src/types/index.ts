@@ -70,23 +70,26 @@ export interface Project {
   order?: number;
   hardness?: number; // 1-5 star rating for difficulty
   benefit?: number; // 1-5 star rating for value
+  sharedWithAll?: boolean; // Herkes görebilsin mi?
+  sharedWith?: string[]; // Paylaşılan kullanıcı isimleri listesi
   tasks: Task[];
 }
 
 export interface TeamMember {
   id: string;
   name: string;
-  role: string;
+  role: string | null;
+  userRole: string | null;
   email: string;
-  avatar: string;
+  avatar: string | null;
 }
 
 export interface Contact {
   id: string;
   name: string;
-  company: string;
-  email: string;
-  phone: string;
+  company: string | null;
+  email: string | null;
+  phone: string | null;
 }
 
 export type ActivityType =
@@ -126,4 +129,6 @@ export interface Todo {
   deadline?: Date;
   order?: number;
   mentions?: string[]; // Array of user names/ids who are mentioned in this todo
+  taskId?: string; // İlişkili task ID'si
+  taskTitle?: string; // Task başlığı (hızlı erişim için)
 }

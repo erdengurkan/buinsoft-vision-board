@@ -14,6 +14,7 @@ import { Task, Priority, TaskStatus } from "@/types";
 import { useState, useEffect } from "react";
 import { teamMembers } from "@/data/mockData";
 import { useWorkflow } from "@/contexts/WorkflowContext";
+import { useQuery } from "@tanstack/react-query";
 
 interface TaskFormModalProps {
   open: boolean;
@@ -23,12 +24,25 @@ interface TaskFormModalProps {
   onSave: (task: Partial<Task>) => void;
 }
 
+const API_URL = import.meta.env.VITE_API_URL || "/api";
+
 export const TaskFormModal = ({ open, onOpenChange, task, defaultStatus, onSave }: TaskFormModalProps) => {
   const { taskStatuses } = useWorkflow();
+  
+  // Fetch users from API
+  const { data: users = [] } = useQuery({
+    queryKey: ["users"],
+    queryFn: async () => {
+      const res = await fetch(`${API_URL}/users`);
+      if (!res.ok) throw new Error("Failed to fetch users");
+      return res.json();
+    },
+  });
+
   const [formData, setFormData] = useState<Partial<Task>>({
     title: "",
     description: "",
-    assignee: teamMembers[0].name,
+    assignee: "",
     priority: "Medium" as Priority,
     status: taskStatuses[0]?.name || "Todo",
     deadline: undefined,
@@ -42,7 +56,7 @@ export const TaskFormModal = ({ open, onOpenChange, task, defaultStatus, onSave 
       setFormData({
         title: "",
         description: "",
-        assignee: teamMembers[0].name,
+        assignee: "",
         priority: "Medium" as Priority,
         status: defaultStatus || taskStatuses[0]?.name || "Todo",
         deadline: undefined,
@@ -93,14 +107,15 @@ export const TaskFormModal = ({ open, onOpenChange, task, defaultStatus, onSave 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="assignee">Assigned To</Label>
-              <Select value={formData.assignee} onValueChange={(value) => setFormData({ ...formData, assignee: value })}>
+              <Select value={formData.assignee || ""} onValueChange={(value) => setFormData({ ...formData, assignee: value })}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Select a user" />
                 </SelectTrigger>
                 <SelectContent>
-                  {teamMembers.map((member) => (
-                    <SelectItem key={member.id} value={member.name}>
-                      {member.name}
+                  <SelectItem value="">None</SelectItem>
+                  {users.map((user: any) => (
+                    <SelectItem key={user.id} value={user.name || user.email}>
+                      {user.name || user.email}
                     </SelectItem>
                   ))}
                 </SelectContent>

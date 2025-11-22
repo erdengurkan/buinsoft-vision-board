@@ -4,6 +4,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Task, Priority } from "@/types";
 import { User, Trash2, Workflow, Clock, Play, UserPlus, Calendar, Flag, Zap, Sparkles } from "lucide-react";
+import { isPast, isToday } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -58,6 +59,9 @@ export const TaskCard = ({ task, projectId, onDelete, onViewDetails, onEditTask,
     transform: CSS.Transform.toString(transform),
     transition,
   };
+
+  // Check if task is overdue
+  const isTaskOverdue = task.deadline && isPast(new Date(task.deadline)) && !isToday(new Date(task.deadline));
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -135,6 +139,8 @@ export const TaskCard = ({ task, projectId, onDelete, onViewDetails, onEditTask,
             isDragging && "opacity-50 shadow-lg",
             isBeingWorkedOn 
               ? "border-red-500 border-2 shadow-red-500/20 bg-red-50/50 dark:bg-red-950/20" 
+              : isTaskOverdue
+              ? "border-red-500 border-2 shadow-red-500/20 bg-red-50/30 dark:bg-red-950/10"
               : "border-border"
           )}
         >

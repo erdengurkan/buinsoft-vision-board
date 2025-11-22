@@ -29,7 +29,13 @@ export const login = async (req: Request, res: Response) => {
 
         // Return user info (excluding password)
         const { password: _, ...userWithoutPassword } = user;
-        res.json({ user: userWithoutPassword });
+        // Ensure userRole is included in response
+        res.json({ 
+          user: {
+            ...userWithoutPassword,
+            userRole: user.userRole || 'User', // Default to 'User' if not set
+          }
+        });
     } catch (error) {
         console.error('Login error:', error);
         res.status(500).json({ error: 'Internal server error' });

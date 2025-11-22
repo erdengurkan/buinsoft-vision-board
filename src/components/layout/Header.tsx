@@ -18,6 +18,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useApp } from "@/contexts/AppContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -25,11 +26,13 @@ import { format } from "date-fns";
 import { getDeadlineStatus, hasFollowUpNeeded } from "@/utils/deadlineHelpers";
 import { ProjectFormModal } from "@/components/modals/ProjectFormModal";
 import { Project } from "@/types";
+import { APP_VERSION } from "@/config/version";
 
 export const Header = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { projects, updateProject } = useApp();
+  const { user } = useAuth();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
@@ -222,7 +225,7 @@ export const Header = () => {
       {/* Right: Search and User Menu */}
       <div className="flex items-center gap-3 shrink-0 ml-auto">
         {/* Version Number */}
-        <span className="text-xs font-semibold text-primary font-mono bg-primary/10 px-2 py-1 rounded">v1.0.2</span>
+        <span className="text-xs font-semibold text-primary font-mono bg-primary/10 px-2 py-1 rounded">v{APP_VERSION}</span>
         
         {/* Search - Icon only, expands on click */}
         {isSearchOpen ? (
@@ -266,7 +269,15 @@ export const Header = () => {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
-            <DropdownMenuSeparator />
+            {user && (
+              <>
+                <div className="px-2 py-1.5 text-sm">
+                  <div className="font-medium">{user.name || "User"}</div>
+                  <div className="text-xs text-muted-foreground">{user.email}</div>
+                </div>
+                <DropdownMenuSeparator />
+              </>
+            )}
             <DropdownMenuItem>
               <User className="mr-2 h-4 w-4" />
               <span>Profile</span>

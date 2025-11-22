@@ -6,7 +6,10 @@ import { prisma } from '../lib/prisma';
 
 export const getProjects = async (req: Request, res: Response) => {
     try {
-        const projects = await prisma.project.findMany({
+        const userName = req.query.userName as string | undefined;
+        
+        // Get all projects first
+        const allProjects = await prisma.project.findMany({
             include: {
                 tasks: {
                     include: {
@@ -16,7 +19,33 @@ export const getProjects = async (req: Request, res: Response) => {
                 labels: true,
             },
         });
-        res.json(projects);
+
+        // Filter projects based on sharing settings
+        let filteredProjects = allProjects;
+        
+        if (userName) {
+            filteredProjects = allProjects.filter((project) => {
+                // If sharedWithAll is true, everyone can see it
+                if (project.sharedWithAll === true) {
+                    return true;
+                }
+                
+                // If sharedWithAll is false and sharedWith is empty, everyone can see it (default)
+                if (project.sharedWithAll === false && (!project.sharedWith || project.sharedWith.length === 0)) {
+                    return true;
+                }
+                
+                // If sharedWithAll is false and sharedWith has users, only those users can see it
+                if (project.sharedWithAll === false && project.sharedWith && project.sharedWith.length > 0) {
+                    return project.sharedWith.includes(userName);
+                }
+                
+                // Default: show if sharedWithAll is true or sharedWith is empty
+                return true;
+            });
+        }
+        
+        res.json(filteredProjects);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch projects' });
     }
@@ -35,6 +64,8 @@ export const createProject = async (req: Request, res: Response) => {
                 deadline: projectData.deadline ? new Date(projectData.deadline) : null,
                 hardness: projectData.hardness ?? null,
                 benefit: projectData.benefit ?? null,
+                sharedWithAll: projectData.sharedWithAll !== undefined ? projectData.sharedWithAll : true,
+                sharedWith: projectData.sharedWith || [],
                 labels: {
                     create: labels?.map((l: any) => ({
                         name: l.name,
@@ -100,6 +131,10 @@ export const updateProject = async (req: Request, res: Response) => {
         // Handle hardness and benefit (allow null values)
         if ('hardness' in updates) updateData.hardness = updates.hardness ?? null;
         if ('benefit' in updates) updateData.benefit = updates.benefit ?? null;
+        
+        // Handle sharing fields
+        if ('sharedWithAll' in updates) updateData.sharedWithAll = updates.sharedWithAll;
+        if ('sharedWith' in updates) updateData.sharedWith = updates.sharedWith || [];
 
         // Handle tasks if provided
         if (tasks && Array.isArray(tasks)) {
