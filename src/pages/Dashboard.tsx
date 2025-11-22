@@ -23,6 +23,7 @@ import { useWorkflow } from "@/contexts/WorkflowContext";
 import { useActivityLog } from "@/hooks/useActivityLog";
 import { useDashboardFilters } from "@/hooks/useDashboardFilters";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -77,8 +78,9 @@ const Dashboard = () => {
   const [touchStartDistance, setTouchStartDistance] = useState<number | null>(null);
   const [touchStartZoom, setTouchStartZoom] = useState(0.75);
 
-  // Get current user (placeholder - in real app this would come from auth)
-  const currentUser = "Emre Kılınç";
+  // Get current user from auth context
+  const { user: authUser } = useAuth();
+  const currentUser = authUser?.name || "Unknown User";
   const isMobile = useIsMobile();
 
   const sensors = useSensors(
@@ -443,6 +445,17 @@ const Dashboard = () => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
           <p className="text-sm text-muted-foreground">Loading projects...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if user is not loaded (should not happen due to ProtectedRoute, but just in case)
+  if (!authUser) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <p className="text-sm text-muted-foreground">Please log in to continue</p>
         </div>
       </div>
     );
