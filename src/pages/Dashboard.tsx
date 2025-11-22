@@ -446,85 +446,6 @@ const Dashboard = () => {
 
   const [filtersExpanded, setFiltersExpanded] = useState(true);
 
-  // Show loading state
-  if (projectsLoading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-          <p className="text-sm text-muted-foreground">Loading projects...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show error state if user is not loaded (should not happen due to ProtectedRoute, but just in case)
-  if (!authUser) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <p className="text-sm text-muted-foreground">Please log in to continue</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show empty state if no projects
-  if (!projectsLoading && projects.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full">
-        <div className="text-center">
-          <h2 className="text-xl font-bold mb-2">No projects yet</h2>
-          <p className="text-sm text-muted-foreground mb-4">Create your first project to get started</p>
-          <Button onClick={handleCreateProject}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create Project
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-
-  // Mouse drag-to-pan functionality (desktop only)
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (isMobile) return;
-    
-    const target = e.target as HTMLElement;
-    if (
-      target.closest('[role="button"]') ||
-      target.closest('button') ||
-      target.closest('a') ||
-      target.closest('[data-dnd-kit-drag-handle]') ||
-      target.closest('[data-dnd-kit-sortable]')
-    ) {
-      return;
-    }
-    if (isLocked) return;
-    setIsDragging(true);
-    setStartPos({ x: e.pageX, y: e.pageY });
-    setPanStart(pan);
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || isLocked || isMobile) return;
-    e.preventDefault();
-    const deltaX = e.pageX - startPos.x;
-    const deltaY = e.pageY - startPos.y;
-    setPan({
-      x: panStart.x + deltaX,
-      y: panStart.y + deltaY,
-    });
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  const handleMouseLeave = () => {
-    setIsDragging(false);
-  };
-
   // Mobile touch pinch-to-zoom handlers - use useCallback and refs to prevent re-renders
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (!isMobile || isLocked) return;
@@ -621,6 +542,85 @@ const Dashboard = () => {
       container.removeEventListener('wheel', handleWheel);
     };
   }, []); // Empty dependency array - only run once on mount
+
+  // Show loading state
+  if (projectsLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+          <p className="text-sm text-muted-foreground">Loading projects...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if user is not loaded (should not happen due to ProtectedRoute, but just in case)
+  if (!authUser) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <p className="text-sm text-muted-foreground">Please log in to continue</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show empty state if no projects
+  if (!projectsLoading && projects.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full">
+        <div className="text-center">
+          <h2 className="text-xl font-bold mb-2">No projects yet</h2>
+          <p className="text-sm text-muted-foreground mb-4">Create your first project to get started</p>
+          <Button onClick={handleCreateProject}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Project
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+
+  // Mouse drag-to-pan functionality (desktop only)
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (isMobile) return;
+    
+    const target = e.target as HTMLElement;
+    if (
+      target.closest('[role="button"]') ||
+      target.closest('button') ||
+      target.closest('a') ||
+      target.closest('[data-dnd-kit-drag-handle]') ||
+      target.closest('[data-dnd-kit-sortable]')
+    ) {
+      return;
+    }
+    if (isLocked) return;
+    setIsDragging(true);
+    setStartPos({ x: e.pageX, y: e.pageY });
+    setPanStart(pan);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || isLocked || isMobile) return;
+    e.preventDefault();
+    const deltaX = e.pageX - startPos.x;
+    const deltaY = e.pageY - startPos.y;
+    setPan({
+      x: panStart.x + deltaX,
+      y: panStart.y + deltaY,
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleMouseLeave = () => {
+    setIsDragging(false);
+  };
 
   // Zoom control handlers
   const handleZoomIn = () => {
