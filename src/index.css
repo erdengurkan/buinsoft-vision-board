@@ -26,6 +26,13 @@ All colors MUST be HSL.
   }
 }
 
+/* Disable browser back/forward navigation on swipe for Kanban containers */
+.kanban-scroll-container {
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: none;
+  -webkit-overflow-scrolling: touch;
+}
+
 @layer base {
   :root {
     --background: 210 20% 98%;
