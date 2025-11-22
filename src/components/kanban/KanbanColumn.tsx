@@ -19,6 +19,7 @@ interface KanbanColumnProps {
   projects: Project[];
   onDeleteProject: (id: string) => void;
   onEditProject: (project: Project) => void;
+  onUpdateProject?: (projectId: string, updates: Partial<Project>) => void;
   onQuickCreate?: (status: string, title: string) => void;
   onEditStatus?: (statusId: string, newName: string, newColor: string) => void;
   onDeleteStatus?: () => void;
@@ -31,6 +32,7 @@ export const KanbanColumn = ({
   projects,
   onDeleteProject,
   onEditProject,
+  onUpdateProject,
   onQuickCreate,
   onEditStatus,
   onDeleteStatus,
@@ -150,6 +152,7 @@ export const KanbanColumn = ({
                 project={project}
                 onDelete={onDeleteProject}
                 onEdit={onEditProject}
+                onUpdateProject={onUpdateProject}
               />
             ))}
           </SortableContext>

@@ -21,6 +21,7 @@ import { useApp } from "@/contexts/AppContext";
 import { useWorkflow } from "@/contexts/WorkflowContext";
 import { useActivityLog } from "@/hooks/useActivityLog";
 import { useDashboardFilters } from "@/hooks/useDashboardFilters";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 const Dashboard = () => {
+  const { user, isLoading: authLoading } = useAuth();
   const { projects, updateProject, deleteProject, addProject, isLoading: projectsLoading } = useApp();
   const { projectStatuses, addProjectStatus, updateProjectStatus, deleteProjectStatus, reorderProjectStatuses } = useWorkflow();
   const { logActivity } = useActivityLog();
@@ -232,6 +234,11 @@ const Dashboard = () => {
     setIsProjectModalOpen(true);
   };
 
+  const handleUpdateProject = (projectId: string, updates: Partial<Project>) => {
+    updateProject(projectId, updates);
+    toast.success("Project updated");
+  };
+
   const handleCreateProject = () => {
     setEditingProject(undefined);
     setIsProjectModalOpen(true);
@@ -424,12 +431,23 @@ const Dashboard = () => {
   const [filtersExpanded, setFiltersExpanded] = useState(true);
 
   // Show loading state
-  if (projectsLoading) {
+  if (authLoading || projectsLoading) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
           <p className="text-sm text-muted-foreground">Loading projects...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If user is not loaded after auth loading is complete, show error
+  if (!authLoading && !user) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <p className="text-sm text-muted-foreground">Please log in to view projects</p>
         </div>
       </div>
     );
@@ -522,8 +540,8 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex-none px-3 pb-1.5 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10">
+    <div className="flex flex-col h-full overflow-hidden min-h-0">
+      <div className="flex-none px-3 pb-1.5 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shrink-0">
         <div className="flex items-center justify-between gap-3 mb-1.5">
           <h1 className="text-lg font-semibold text-foreground">Project Dashboard</h1>
           <div className="flex items-center gap-1.5">
@@ -584,7 +602,7 @@ const Dashboard = () => {
 
       <div
         ref={kanbanContainerRef}
-        className="flex-1 min-h-0 overflow-hidden relative"
+        className="flex-1 min-h-0 overflow-hidden relative h-full"
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
@@ -638,6 +656,7 @@ const Dashboard = () => {
                       projects={getProjectsByStatus(statusColumn.name)}
                       onDeleteProject={handleDeleteProject}
                       onEditProject={handleEditProject}
+                      onUpdateProject={handleUpdateProject}
                       onQuickCreate={handleQuickCreateProject}
                       onEditStatus={handleEditStatus}
                       onDeleteStatus={getProjectsByStatus(statusColumn.name).length === 0 ? () => handleDeleteStatus(statusColumn.id) : undefined}

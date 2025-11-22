@@ -1,3 +1,2 @@
-// Application version - update this file when releasing a new version
-export const APP_VERSION = "1.2.6";
-
+// Application version - injected by Vite at build time
+export const APP_VERSION = import.meta.env.VITE_APP_VERSION || "1.3.32.32";

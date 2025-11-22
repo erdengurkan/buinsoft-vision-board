@@ -156,7 +156,7 @@ export default function Analytics() {
   ).length;
 
   return (
-    <div className="space-y-6">
+    <div className="px-4 md:px-6 py-4 space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Analytics Dashboard</h1>
         <p className="text-muted-foreground mt-1">

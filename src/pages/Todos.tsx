@@ -111,8 +111,7 @@ export default function Todos() {
           return;
         }
       }
-      // If task not found in current projects, try to fetch from API
-      console.warn("⚠️ Task not found in local projects, attempting to fetch from API:", todo.taskId);
+      // If task not found in current projects, try to fetch from API silently
       const API_URL = import.meta.env.VITE_API_URL || "/api";
       fetch(`${API_URL}/tasks/${todo.taskId}`)
         .then((taskRes) => {
@@ -125,13 +124,13 @@ export default function Todos() {
           if (taskData?.project?.id) {
             navigate(`/project/${taskData.project.id}?taskId=${todo.taskId}`);
           } else {
-            toast.error("Task not found in current projects");
+            toast.error("Task not found");
             navigate("/dashboard");
           }
         })
         .catch((error) => {
           console.error("Failed to fetch task from API:", error);
-          toast.error("Task not found in current projects");
+          toast.error("Task not found");
           navigate("/dashboard");
         });
     }
@@ -211,7 +210,7 @@ export default function Todos() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="px-4 md:px-6 py-4 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Todo List</h1>

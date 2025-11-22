@@ -34,6 +34,7 @@ interface TaskKanbanProps {
   onAddStatus?: (position?: 'start' | 'end') => void;
   onDeleteStatus?: (statusId: string) => void;
   onEditStatus?: (statusId: string, newName: string, newColor: string) => void;
+  onReorderStatuses?: (statuses: StatusColumn[]) => void;
 }
 
 export const TaskKanban = ({
@@ -50,6 +51,7 @@ export const TaskKanban = ({
   onAddStatus,
   onDeleteStatus,
   onEditStatus,
+  onReorderStatuses,
 }: TaskKanbanProps) => {
   // Remove useWorkflow hook usage
   const taskStatuses = statuses;

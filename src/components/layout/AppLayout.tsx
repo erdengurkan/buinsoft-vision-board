@@ -30,9 +30,9 @@ export const AppLayout = () => {
       hasFlowBanner && "pt-[64px]"
     )}>
       <Sidebar isCollapsed={isSidebarCollapsed} onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)} />
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden min-h-0">
         <Header />
-        <main className="flex-1 overflow-auto relative">
+        <main className="flex-1 overflow-hidden relative min-h-0">
           <Outlet />
         </main>
       </div>

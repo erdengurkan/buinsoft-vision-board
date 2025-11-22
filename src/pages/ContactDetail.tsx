@@ -29,7 +29,7 @@ const ContactDetail = () => {
   const clientProjects = projects.filter((p) => p.client === contact.company);
 
   return (
-    <div className="space-y-6">
+    <div className="px-4 md:px-6 py-4 space-y-6">
       <Button
         variant="ghost"
         size="sm"

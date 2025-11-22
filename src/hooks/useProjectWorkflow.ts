@@ -123,8 +123,17 @@ export const useProjectWorkflow = (projectId: string | undefined): UseProjectWor
     };
 
     const reorderTaskStatuses = async (statusOrders: { id: string; order: number }[]) => {
-        // Implementation for reordering if needed
-        console.log("Reorder not implemented yet", statusOrders);
+        if (!projectId) throw new Error("No project ID");
+
+        // Update orders for all statuses
+        await Promise.all(
+            statusOrders.map(({ id, order }) =>
+                updateTaskStatus(id, { order })
+            )
+        );
+
+        // Invalidate to refetch
+        await queryClient.invalidateQueries({ queryKey: ["workflow", projectId] });
     };
 
     return {

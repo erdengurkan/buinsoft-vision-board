@@ -65,6 +65,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     refetchOnWindowFocus: false, // Don't refetch on window focus
     refetchOnMount: true, // Only refetch on mount
     retry: 2, // Retry failed requests
+    placeholderData: [], // Use empty array as placeholder when disabled
   });
 
   const addProjectMutation = useMutation({
@@ -143,6 +144,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     return projects.find((project: Project) => project.id === id);
   };
 
+  // If query is disabled (no user), isLoading should be false
+  const effectiveLoading = !user ? false : isLoading;
+
   return (
     <AppContext.Provider
       value={{
@@ -151,7 +155,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         deleteProject,
         addProject,
         getProjectById,
-        isLoading,
+        isLoading: effectiveLoading,
       }}
     >
       {children}

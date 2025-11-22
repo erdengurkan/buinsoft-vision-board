@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +21,7 @@ import { toast } from "sonner";
 const Team = () => {
   const { users, isLoading, deleteUser } = useUsers();
   const { user: currentUser } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<TeamMember | undefined>(undefined);
   
@@ -35,6 +37,21 @@ const Team = () => {
     userRole: user.userRole,
     avatar: user.avatar || null,
   }));
+
+  // Check if there's an edit query parameter and open modal for current user
+  useEffect(() => {
+    const editUserId = searchParams.get("edit");
+    if (editUserId && currentUser?.id === editUserId) {
+      const userToEdit = teamMembers.find((member) => member.id === editUserId);
+      if (userToEdit) {
+        setEditingMember(userToEdit);
+        setIsModalOpen(true);
+        // Remove query parameter from URL
+        searchParams.delete("edit");
+        setSearchParams(searchParams, { replace: true });
+      }
+    }
+  }, [searchParams, currentUser, teamMembers, setSearchParams]);
 
   const handleAddClick = () => {
     setEditingMember(undefined);
@@ -66,6 +83,18 @@ const Team = () => {
     setEditingMember(undefined);
   };
 
+  const handleModalClose = (open: boolean) => {
+    setIsModalOpen(open);
+    if (!open) {
+      setEditingMember(undefined);
+      // Remove edit query parameter if modal is closed
+      if (searchParams.get("edit")) {
+        searchParams.delete("edit");
+        setSearchParams(searchParams, { replace: true });
+      }
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -78,7 +107,7 @@ const Team = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="px-4 md:px-6 py-4 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Team Members</h1>
@@ -197,7 +226,7 @@ const Team = () => {
 
       <TeamMemberFormModal
         open={isModalOpen}
-        onOpenChange={setIsModalOpen}
+        onOpenChange={handleModalClose}
         member={editingMember}
         onSave={handleSave}
       />
