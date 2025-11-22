@@ -200,7 +200,7 @@ export const TaskKanban = ({
       // MacBook trackpad pinch gesture (Ctrl/Cmd + wheel = zoom)
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
-        const delta = e.deltaY > 0 ? -0.03 : 0.03; // Slower zoom (was 0.1)
+        const delta = e.deltaY > 0 ? -0.015 : 0.015; // Slower zoom (half of 0.03)
         setZoom((prevZoom) => {
           const newZoom = Math.max(0.5, Math.min(2.0, prevZoom + delta));
           return newZoom;
@@ -223,7 +223,7 @@ export const TaskKanban = ({
       if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
         // Vertical scroll = zoom
         e.preventDefault();
-        const delta = e.deltaY > 0 ? -0.03 : 0.03; // Slower zoom (was 0.1)
+        const delta = e.deltaY > 0 ? -0.015 : 0.015; // Slower zoom (half of 0.03)
         setZoom((prevZoom) => {
           const newZoom = Math.max(0.5, Math.min(2.0, prevZoom + delta));
           return newZoom;
@@ -241,12 +241,12 @@ export const TaskKanban = ({
   // Zoom control handlers
   const handleZoomIn = () => {
     if (isLocked) return;
-    setZoom((prev) => Math.min(2.0, prev + 0.05)); // Slower zoom (was 0.1)
+    setZoom((prev) => Math.min(2.0, prev + 0.025)); // Slower zoom (half of 0.05)
   };
 
   const handleZoomOut = () => {
     if (isLocked) return;
-    setZoom((prev) => Math.max(0.5, prev - 0.05)); // Slower zoom (was 0.1)
+    setZoom((prev) => Math.max(0.5, prev - 0.025)); // Slower zoom (half of 0.05)
   };
 
   const handleFitView = () => {
