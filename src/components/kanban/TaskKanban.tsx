@@ -196,7 +196,30 @@ export const TaskKanban = ({
     const container = scrollContainerRef.current;
     if (!container) return;
 
+    // Prevent browser back/forward navigation on swipe (MacBook trackpad)
+    // Use a flag to track if we're actively panning
+    let isPanning = false;
+    
+    const handlePopState = (e: PopStateEvent) => {
+      // Only prevent if we're actively panning
+      if (isPanning) {
+        e.preventDefault();
+        // Push current state to prevent navigation
+        window.history.pushState(null, '', window.location.href);
+      }
+    };
+
+    // Combined wheel handler with panning tracking
     const handleWheel = (e: WheelEvent) => {
+      // Track panning state for horizontal scroll
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+        isPanning = true;
+        // Reset flag after a short delay
+        setTimeout(() => {
+          isPanning = false;
+        }, 100);
+      }
+
       // MacBook trackpad pinch gesture (Ctrl/Cmd + wheel = zoom)
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
@@ -232,41 +255,14 @@ export const TaskKanban = ({
       }
     };
 
-    // Prevent browser back/forward navigation on swipe (MacBook trackpad)
-    // Use a flag to track if we're actively panning
-    let isPanning = false;
-    
-    const handlePopState = (e: PopStateEvent) => {
-      // Only prevent if we're actively panning
-      if (isPanning) {
-        e.preventDefault();
-        // Push current state to prevent navigation
-        window.history.pushState(null, '', window.location.href);
-      }
-    };
-
-    // Wrap handleWheel to track panning state
-    const wrappedHandleWheel = (e: WheelEvent) => {
-      // Track panning state for horizontal scroll
-      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-        isPanning = true;
-        // Reset flag after a short delay
-        setTimeout(() => {
-          isPanning = false;
-        }, 100);
-      }
-      // Call original handleWheel
-      handleWheel(e);
-    };
-
-    container.addEventListener('wheel', wrappedHandleWheel, { passive: false });
+    container.addEventListener('wheel', handleWheel, { passive: false });
     window.addEventListener('popstate', handlePopState);
     
     // Push state to prevent back navigation
     window.history.pushState(null, '', window.location.href);
     
     return () => {
-      container.removeEventListener('wheel', wrappedHandleWheel);
+      container.removeEventListener('wheel', handleWheel);
       window.removeEventListener('popstate', handlePopState);
     };
   }, [isMobile, isLocked]); // Removed pan.x and pan.y from dependencies to prevent infinite loop
