@@ -62,8 +62,6 @@ export const TaskKanban = ({
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const kanbanContentRef = useRef<HTMLDivElement>(null);
-  const isPanningRef = useRef(false); // Use useRef for isPanning to avoid closure issues
-  const hasPushedStateRef = useRef(false); // Track if we've pushed state to avoid infinite loop
   
   // Zoom and Pan states
   const [zoom, setZoom] = useState(0.75); // Default zoom at 75%
@@ -200,29 +198,8 @@ export const TaskKanban = ({
     const container = scrollContainerRef.current;
     if (!container) return;
 
-    // Prevent browser back/forward navigation on swipe (MacBook trackpad)
-    const handlePopState = (e: PopStateEvent) => {
-      // Only prevent if we're actively panning
-      if (isPanningRef.current) {
-        // Don't call preventDefault on popstate - it doesn't work
-        // Instead, push state back if we're panning
-        if (hasPushedStateRef.current) {
-          window.history.pushState({ preventBack: true }, '', window.location.href);
-        }
-      }
-    };
-
-    // Combined wheel handler with panning tracking
+    // Wheel handler for zoom and pan
     const handleWheel = (e: WheelEvent) => {
-      // Track panning state for horizontal scroll
-      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-        isPanningRef.current = true;
-        // Reset flag after a short delay
-        setTimeout(() => {
-          isPanningRef.current = false;
-        }, 100);
-      }
-
       // MacBook trackpad pinch gesture (Ctrl/Cmd + wheel = zoom)
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
@@ -236,7 +213,7 @@ export const TaskKanban = ({
       
       // Two-finger swipe on MacBook (deltaX) should pan, not zoom
       if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-        // Horizontal scroll = pan - prevent browser back/forward navigation
+        // Horizontal scroll = pan - prevent browser back/forward navigation via CSS overscroll-behavior
         e.preventDefault();
         e.stopPropagation();
         setPan((prevPan) => ({
@@ -259,17 +236,9 @@ export const TaskKanban = ({
     };
 
     container.addEventListener('wheel', handleWheel, { passive: false });
-    window.addEventListener('popstate', handlePopState);
-    
-    // Push state to prevent back navigation (only once on mount, and only if not already pushed)
-    if (!hasPushedStateRef.current) {
-      window.history.pushState({ preventBack: true }, '', window.location.href);
-      hasPushedStateRef.current = true;
-    }
     
     return () => {
       container.removeEventListener('wheel', handleWheel);
-      window.removeEventListener('popstate', handlePopState);
     };
   }, [isMobile, isLocked]); // Removed pan.x and pan.y from dependencies to prevent infinite loop
 
