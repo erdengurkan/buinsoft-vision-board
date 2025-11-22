@@ -6,6 +6,9 @@ import packageJson from "./package.json";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  define: {
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify('1.3.32.39'),
+  },
   server: {
     host: "::",
     port: 8080,

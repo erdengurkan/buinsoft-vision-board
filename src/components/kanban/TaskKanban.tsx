@@ -9,6 +9,7 @@ import {
   rectIntersection,
   CollisionDetection,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
@@ -19,6 +20,8 @@ import { TaskColumn } from "./TaskColumn";
 import { TaskCard } from "./TaskCard";
 import { Button } from "@/components/ui/button";
 import { Plus, ZoomIn, ZoomOut, Maximize2, Lock, Unlock } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
 
 interface TaskKanbanProps {
   projectId: string;
@@ -55,6 +58,7 @@ export const TaskKanban = ({
 }: TaskKanbanProps) => {
   // Remove useWorkflow hook usage
   const taskStatuses = statuses;
+  const isMobile = useIsMobile();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const kanbanContentRef = useRef<HTMLDivElement>(null);
@@ -69,29 +73,68 @@ export const TaskKanban = ({
   const [startPos, setStartPos] = useState({ x: 0, y: 0 });
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
 
+  // Mobile pinch-to-zoom states
+  const [touchStartDistance, setTouchStartDistance] = useState<number | null>(null);
+  const [touchStartZoom, setTouchStartZoom] = useState(0.75);
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 8,
       },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200,
+        tolerance: 5,
+      },
     })
   );
 
-  // Mouse wheel zoom handler
-  const handleWheel = (e: React.WheelEvent) => {
-    if (isLocked) return;
+  // Mouse wheel zoom handler (desktop only) - using native event listener to avoid passive listener issue
+  useEffect(() => {
+    if (isMobile || isLocked) return;
     
-    // Prevent default scrolling
-    e.preventDefault();
-    
-    // Zoom in/out with mouse wheel
-    const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    const newZoom = Math.max(0.5, Math.min(2.0, zoom + delta));
-    setZoom(newZoom);
-  };
+    const container = scrollContainerRef.current;
+    if (!container) return;
 
-  // Mouse drag-to-pan functionality
+    const handleWheel = (e: WheelEvent) => {
+      // MacBook trackpad pinch gesture (Ctrl/Cmd + wheel = zoom)
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        setZoom((prevZoom) => {
+          const newZoom = Math.max(0.5, Math.min(2.0, prevZoom + delta));
+          return newZoom;
+        });
+        return;
+      }
+      
+      // Two-finger swipe on MacBook (deltaX) should pan, not zoom
+      // Only zoom if it's a vertical scroll (deltaY) without Ctrl/Cmd
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        // Vertical scroll = zoom
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        setZoom((prevZoom) => {
+          const newZoom = Math.max(0.5, Math.min(2.0, prevZoom + delta));
+          return newZoom;
+        });
+      }
+      // Horizontal scroll (deltaX) = pan (handled by native scroll or drag)
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+    };
+  }, [isMobile, isLocked, zoom]);
+
+  // Mouse drag-to-pan functionality (desktop only)
   const handleMouseDown = (e: React.MouseEvent) => {
+    if (isMobile) return;
+    
     // Only start drag-to-pan if clicking on empty space (not on a task or interactive element)
     const target = e.target as HTMLElement;
     // Check if clicking on interactive elements
@@ -113,7 +156,7 @@ export const TaskKanban = ({
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || isLocked) return;
+    if (!isDragging || isLocked || isMobile) return;
     e.preventDefault();
     
     const deltaX = e.pageX - startPos.x;
@@ -131,6 +174,41 @@ export const TaskKanban = ({
 
   const handleMouseLeave = () => {
     setIsDragging(false);
+  };
+
+  // Mobile touch pinch-to-zoom handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!isMobile || isLocked) return;
+    
+    if (e.touches.length === 2) {
+      const distance = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      setTouchStartDistance(distance);
+      setTouchStartZoom(zoom);
+      e.preventDefault(); // Prevent browser zoom
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isMobile || isLocked) return;
+    
+    if (e.touches.length === 2 && touchStartDistance !== null) {
+      const distance = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const scale = distance / touchStartDistance;
+      const newZoom = Math.max(0.5, Math.min(2.0, touchStartZoom * scale));
+      setZoom(newZoom);
+      e.preventDefault(); // Prevent browser zoom
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (!isMobile) return;
+    setTouchStartDistance(null);
   };
 
   useEffect(() => {
@@ -152,6 +230,55 @@ export const TaskKanban = ({
       document.body.style.cursor = '';
     };
   }, [isDragging, isLocked]);
+
+  // Mouse wheel zoom handler (desktop only) - using native event listener to avoid passive listener issue
+  useEffect(() => {
+    if (isMobile || isLocked) return;
+    
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      // MacBook trackpad pinch gesture (Ctrl/Cmd + wheel = zoom)
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        setZoom((prevZoom) => {
+          const newZoom = Math.max(0.5, Math.min(2.0, prevZoom + delta));
+          return newZoom;
+        });
+        return;
+      }
+      
+      // Two-finger swipe on MacBook (deltaX) should pan, not zoom
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+        // Horizontal scroll = pan
+        e.preventDefault();
+        setPan((prevPan) => ({
+          x: prevPan.x + e.deltaX,
+          y: prevPan.y,
+        }));
+        return;
+      }
+      
+      // Only zoom if it's a vertical scroll (deltaY) without Ctrl/Cmd
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        // Vertical scroll = zoom
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        setZoom((prevZoom) => {
+          const newZoom = Math.max(0.5, Math.min(2.0, prevZoom + delta));
+          return newZoom;
+        });
+      }
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+    };
+  }, [isMobile, isLocked]); // Removed 'zoom' from dependencies to prevent infinite loop
 
   // Zoom control handlers
   const handleZoomIn = () => {
@@ -390,21 +517,41 @@ export const TaskKanban = ({
     >
       <div
         ref={scrollContainerRef}
-        className="kanban-scroll-container relative overflow-hidden h-full w-full"
-        onWheel={handleWheel}
+        className={cn(
+          "kanban-scroll-container relative h-full w-full",
+          isMobile 
+            ? "overflow-x-auto overflow-y-hidden" 
+            : "overflow-hidden"
+        )}
+        style={{
+          ...(isMobile && {
+            WebkitOverflowScrolling: 'touch' as const,
+            scrollbarWidth: 'thin' as const,
+          }),
+          ...(!isMobile && {
+            cursor: isLocked ? 'default' : isDragging ? 'grabbing' : 'grab'
+          })
+        }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
-        style={{ cursor: isLocked ? 'default' : isDragging ? 'grabbing' : 'grab' }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         <div
           ref={kanbanContentRef}
           className="flex gap-2 md:gap-4 pb-4"
           style={{
-            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-            transformOrigin: 'top left',
-            transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+            ...(!isMobile && {
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+              transformOrigin: 'top left',
+              transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+            }),
+            ...(isMobile && {
+              minWidth: 'max-content',
+            }),
           }}
         >
         {/* Add Status Button - Only show before first status */}
@@ -460,50 +607,52 @@ export const TaskKanban = ({
         })}
         </div>
         
-        {/* Zoom Controls - Bottom Left */}
-        <div className="fixed bottom-4 left-4 z-50">
-          <div className="flex flex-col gap-1 bg-card border-2 border-primary/20 rounded-lg shadow-xl p-1.5 backdrop-blur-sm">
-            <Button
-              onClick={handleZoomIn}
-              disabled={isLocked || zoom >= 2.0}
-              className="rounded-md h-8 w-8 p-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all disabled:opacity-50"
-              size="sm"
-              title="Zoom In (+)"
-            >
-              <ZoomIn className="h-4 w-4" />
-            </Button>
-            <Button
-              onClick={handleZoomOut}
-              disabled={isLocked || zoom <= 0.5}
-              className="rounded-md h-8 w-8 p-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all disabled:opacity-50"
-              size="sm"
-              title="Zoom Out (-)"
-            >
-              <ZoomOut className="h-4 w-4" />
-            </Button>
-            <Button
-              onClick={handleFitView}
-              disabled={isLocked}
-              className="rounded-md h-8 w-8 p-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all disabled:opacity-50"
-              size="sm"
-              title="Fit View (75%)"
-            >
-              <Maximize2 className="h-4 w-4" />
-            </Button>
-            <Button
-              onClick={handleToggleLock}
-              className={`rounded-md h-8 w-8 p-0 shadow-md transition-all ${
-                isLocked
-                  ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground'
-                  : 'bg-primary hover:bg-primary/90 text-primary-foreground'
-              }`}
-              size="sm"
-              title={isLocked ? 'Unlock' : 'Lock'}
-            >
-              {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
-            </Button>
+        {/* Zoom Controls - Bottom Left (Desktop) / Bottom Right (Mobile) */}
+        {!isMobile && (
+          <div className="fixed bottom-4 left-4 z-50">
+            <div className="flex flex-col gap-1 bg-card border-2 border-primary/20 rounded-lg shadow-xl p-1.5 backdrop-blur-sm">
+              <Button
+                onClick={handleZoomIn}
+                disabled={isLocked || zoom >= 2.0}
+                className="rounded-md h-8 w-8 p-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all disabled:opacity-50"
+                size="sm"
+                title="Zoom In (+)"
+              >
+                <ZoomIn className="h-4 w-4" />
+              </Button>
+              <Button
+                onClick={handleZoomOut}
+                disabled={isLocked || zoom <= 0.5}
+                className="rounded-md h-8 w-8 p-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all disabled:opacity-50"
+                size="sm"
+                title="Zoom Out (-)"
+              >
+                <ZoomOut className="h-4 w-4" />
+              </Button>
+              <Button
+                onClick={handleFitView}
+                disabled={isLocked}
+                className="rounded-md h-8 w-8 p-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all disabled:opacity-50"
+                size="sm"
+                title="Fit View (75%)"
+              >
+                <Maximize2 className="h-4 w-4" />
+              </Button>
+              <Button
+                onClick={handleToggleLock}
+                className={`rounded-md h-8 w-8 p-0 shadow-md transition-all ${
+                  isLocked
+                    ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground'
+                    : 'bg-primary hover:bg-primary/90 text-primary-foreground'
+                }`}
+                size="sm"
+                title={isLocked ? 'Unlock' : 'Lock'}
+              >
+                {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
       <DragOverlay>
         {activeTask ? <TaskCard task={activeTask} projectId={projectId} onDelete={() => { }} /> : null}

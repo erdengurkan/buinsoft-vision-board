@@ -124,12 +124,12 @@ export const ProjectFormModal = ({ open, onOpenChange, project, onSave }: Projec
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{project ? "Edit Project" : "Create Project"}</DialogTitle>
+      <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto p-3 sm:p-4 md:p-6">
+        <DialogHeader className="pb-2 sm:pb-4">
+          <DialogTitle className="text-base sm:text-lg">{project ? "Edit Project" : "Create Project"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="title">Project Title *</Label>
               <Input
@@ -150,7 +150,7 @@ export const ProjectFormModal = ({ open, onOpenChange, project, onSave }: Projec
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="assignee">Assigned To</Label>
               <Select value={formData.assignee} onValueChange={(value) => setFormData({ ...formData, assignee: value })}>
@@ -198,7 +198,7 @@ export const ProjectFormModal = ({ open, onOpenChange, project, onSave }: Projec
             </Select>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>Start Date</Label>
               <Popover>
@@ -377,11 +377,11 @@ export const ProjectFormModal = ({ open, onOpenChange, project, onSave }: Projec
             )}
           </div>
 
-          <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-3 sm:pt-4">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto min-h-[44px]">
               Cancel
             </Button>
-            <Button type="submit">{project ? "Update" : "Create"}</Button>
+            <Button type="submit" className="w-full sm:w-auto min-h-[44px]">{project ? "Update" : "Create"}</Button>
           </div>
         </form>
       </DialogContent>

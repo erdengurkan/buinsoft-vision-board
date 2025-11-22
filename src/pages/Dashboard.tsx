@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -6,6 +6,7 @@ import {
   DragOverlay,
   closestCorners,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
@@ -21,7 +22,7 @@ import { useApp } from "@/contexts/AppContext";
 import { useWorkflow } from "@/contexts/WorkflowContext";
 import { useActivityLog } from "@/hooks/useActivityLog";
 import { useDashboardFilters } from "@/hooks/useDashboardFilters";
-import { useAuth } from "@/contexts/AuthContext";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -37,7 +38,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 const Dashboard = () => {
-  const { user, isLoading: authLoading } = useAuth();
   const { projects, updateProject, deleteProject, addProject, isLoading: projectsLoading } = useApp();
   const { projectStatuses, addProjectStatus, updateProjectStatus, deleteProjectStatus, reorderProjectStatuses } = useWorkflow();
   const { logActivity } = useActivityLog();
@@ -73,13 +73,24 @@ const Dashboard = () => {
   const kanbanContainerRef = useRef<HTMLDivElement>(null);
   const kanbanContentRef = useRef<HTMLDivElement>(null);
 
+  // Mobile pinch-to-zoom states
+  const [touchStartDistance, setTouchStartDistance] = useState<number | null>(null);
+  const [touchStartZoom, setTouchStartZoom] = useState(0.75);
+
   // Get current user (placeholder - in real app this would come from auth)
   const currentUser = "Emre Kılınç";
+  const isMobile = useIsMobile();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 8,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200,
+        tolerance: 5,
       },
     })
   );
@@ -232,11 +243,6 @@ const Dashboard = () => {
   const handleEditProject = (project: Project) => {
     setEditingProject(project);
     setIsProjectModalOpen(true);
-  };
-
-  const handleUpdateProject = (projectId: string, updates: Partial<Project>) => {
-    updateProject(projectId, updates);
-    toast.success("Project updated");
   };
 
   const handleCreateProject = () => {
@@ -431,23 +437,12 @@ const Dashboard = () => {
   const [filtersExpanded, setFiltersExpanded] = useState(true);
 
   // Show loading state
-  if (authLoading || projectsLoading) {
+  if (projectsLoading) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
           <p className="text-sm text-muted-foreground">Loading projects...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // If user is not loaded after auth loading is complete, show error
-  if (!authLoading && !user) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <p className="text-sm text-muted-foreground">Please log in to view projects</p>
         </div>
       </div>
     );
@@ -469,17 +464,11 @@ const Dashboard = () => {
     );
   }
 
-  // Mouse wheel zoom handler
-  const handleWheel = (e: React.WheelEvent) => {
-    if (isLocked) return;
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    const newZoom = Math.max(0.5, Math.min(2.0, zoom + delta));
-    setZoom(newZoom);
-  };
 
-  // Mouse drag-to-pan functionality
+  // Mouse drag-to-pan functionality (desktop only)
   const handleMouseDown = (e: React.MouseEvent) => {
+    if (isMobile) return;
+    
     const target = e.target as HTMLElement;
     if (
       target.closest('[role="button"]') ||
@@ -497,7 +486,7 @@ const Dashboard = () => {
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || isLocked) return;
+    if (!isDragging || isLocked || isMobile) return;
     e.preventDefault();
     const deltaX = e.pageX - startPos.x;
     const deltaY = e.pageY - startPos.y;
@@ -514,6 +503,90 @@ const Dashboard = () => {
   const handleMouseLeave = () => {
     setIsDragging(false);
   };
+
+  // Mobile touch pinch-to-zoom handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!isMobile || isLocked) return;
+    
+    if (e.touches.length === 2) {
+      const distance = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      setTouchStartDistance(distance);
+      setTouchStartZoom(zoom);
+      e.preventDefault(); // Prevent browser zoom
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isMobile || isLocked) return;
+    
+    if (e.touches.length === 2 && touchStartDistance !== null) {
+      const distance = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const scale = distance / touchStartDistance;
+      const newZoom = Math.max(0.5, Math.min(2.0, touchStartZoom * scale));
+      setZoom(newZoom);
+      e.preventDefault(); // Prevent browser zoom
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (!isMobile) return;
+    setTouchStartDistance(null);
+  };
+
+  // Mouse wheel zoom handler (desktop only) - using native event listener to avoid passive listener issue
+  useEffect(() => {
+    if (isMobile || isLocked) return;
+    
+    const container = kanbanContainerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      // MacBook trackpad pinch gesture (Ctrl/Cmd + wheel = zoom)
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        setZoom((prevZoom) => {
+          const newZoom = Math.max(0.5, Math.min(2.0, prevZoom + delta));
+          return newZoom;
+        });
+        return;
+      }
+      
+      // Two-finger swipe on MacBook (deltaX) should pan, not zoom
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+        // Horizontal scroll = pan
+        e.preventDefault();
+        setPan((prevPan) => ({
+          x: prevPan.x + e.deltaX,
+          y: prevPan.y,
+        }));
+        return;
+      }
+      
+      // Only zoom if it's a vertical scroll (deltaY) without Ctrl/Cmd
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        // Vertical scroll = zoom
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        setZoom((prevZoom) => {
+          const newZoom = Math.max(0.5, Math.min(2.0, prevZoom + delta));
+          return newZoom;
+        });
+      }
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+    };
+  }, [isMobile, isLocked]); // Removed 'zoom' from dependencies to prevent infinite loop
 
   // Zoom control handlers
   const handleZoomIn = () => {
@@ -540,33 +613,37 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden min-h-0">
-      <div className="flex-none px-3 pb-1.5 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shrink-0">
-        <div className="flex items-center justify-between gap-3 mb-1.5">
-          <h1 className="text-lg font-semibold text-foreground">Project Dashboard</h1>
-          <div className="flex items-center gap-1.5">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleAddStatus}
-              className="h-7 gap-1 px-2"
-            >
-              <Plus className="h-3 w-3" />
-              <span className="text-xs">Status</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsCommentsCollapsed(!isCommentsCollapsed)}
-              className={cn("h-7 gap-1 px-2", !isCommentsCollapsed && "bg-accent")}
-            >
-              <MessageSquare className="h-3 w-3" />
-              <span className="text-xs">Comments</span>
-            </Button>
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="flex-none px-3 pb-1.5 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10">
+        <div className="flex items-center justify-between gap-2 sm:gap-3 mb-1.5">
+          <h1 className={cn("font-semibold text-foreground", isMobile ? "text-base" : "text-lg")}>Project Dashboard</h1>
+          <div className="flex items-center gap-1 sm:gap-1.5">
+            {!isMobile && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddStatus}
+                  className="h-7 gap-1 px-2 min-h-[44px]"
+                >
+                  <Plus className="h-3 w-3" />
+                  <span className="text-xs">Status</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsCommentsCollapsed(!isCommentsCollapsed)}
+                  className={cn("h-7 gap-1 px-2 min-h-[44px]", !isCommentsCollapsed && "bg-accent")}
+                >
+                  <MessageSquare className="h-3 w-3" />
+                  <span className="text-xs">Comments</span>
+                </Button>
+              </>
+            )}
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 mb-1.5">
+        <div className="flex items-center gap-1.5 mb-1.5 overflow-x-auto pb-1">
           <DashboardQuickActions
             onNewProject={handleCreateProject}
             onNewTask={handleNewTask}
@@ -578,7 +655,7 @@ const Dashboard = () => {
             variant="ghost"
             size="sm"
             onClick={() => setFiltersExpanded(!filtersExpanded)}
-            className="h-7 text-xs px-2"
+            className="h-10 sm:h-7 text-xs px-3 sm:px-2 min-w-[44px] shrink-0"
           >
             {filtersExpanded ? "Hide" : "Show"} Filters
           </Button>
@@ -602,13 +679,28 @@ const Dashboard = () => {
 
       <div
         ref={kanbanContainerRef}
-        className="flex-1 min-h-0 overflow-hidden relative h-full"
-        onWheel={handleWheel}
+        className={cn(
+          "flex-1 min-h-0 relative",
+          isMobile 
+            ? "overflow-x-auto overflow-y-hidden" 
+            : "overflow-hidden"
+        )}
+        style={{
+          ...(isMobile && {
+            WebkitOverflowScrolling: 'touch' as const,
+            scrollbarWidth: 'thin' as const,
+          }),
+          ...(!isMobile && {
+            cursor: isLocked ? 'default' : isDragging ? 'grabbing' : 'grab'
+          })
+        }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
-        style={{ cursor: isLocked ? 'default' : isDragging ? 'grabbing' : 'grab' }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         <DndContext
           sensors={sensors}
@@ -621,9 +713,14 @@ const Dashboard = () => {
             ref={kanbanContentRef}
             className="flex gap-4 h-full min-w-max"
             style={{
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-              transformOrigin: 'top left',
-              transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+              ...(!isMobile && {
+                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                transformOrigin: 'top left',
+                transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+              }),
+              ...(isMobile && {
+                minWidth: 'max-content',
+              }),
             }}
           >
             {/* Add Status Button - Only show before first status */}
@@ -656,7 +753,6 @@ const Dashboard = () => {
                       projects={getProjectsByStatus(statusColumn.name)}
                       onDeleteProject={handleDeleteProject}
                       onEditProject={handleEditProject}
-                      onUpdateProject={handleUpdateProject}
                       onQuickCreate={handleQuickCreateProject}
                       onEditStatus={handleEditStatus}
                       onDeleteStatus={getProjectsByStatus(statusColumn.name).length === 0 ? () => handleDeleteStatus(statusColumn.id) : undefined}
@@ -689,55 +785,60 @@ const Dashboard = () => {
           </DragOverlay>
         </DndContext>
         
-        {/* Zoom Controls - Bottom Left */}
-        <div className="fixed bottom-4 left-4 z-50">
-          <div className="flex flex-col gap-1 bg-card border-2 border-primary/20 rounded-lg shadow-xl p-1.5 backdrop-blur-sm">
-            <Button
-              onClick={handleZoomIn}
-              disabled={isLocked || zoom >= 2.0}
-              className="rounded-md h-8 w-8 p-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all disabled:opacity-50"
-              size="sm"
-              title="Zoom In (+)"
-            >
-              <ZoomIn className="h-4 w-4" />
-            </Button>
-            <Button
-              onClick={handleZoomOut}
-              disabled={isLocked || zoom <= 0.5}
-              className="rounded-md h-8 w-8 p-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all disabled:opacity-50"
-              size="sm"
-              title="Zoom Out (-)"
-            >
-              <ZoomOut className="h-4 w-4" />
-            </Button>
-            <Button
-              onClick={handleFitView}
-              disabled={isLocked}
-              className="rounded-md h-8 w-8 p-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all disabled:opacity-50"
-              size="sm"
-              title="Fit View (75%)"
-            >
-              <Maximize2 className="h-4 w-4" />
-            </Button>
-            <Button
-              onClick={handleToggleLock}
-              className={`rounded-md h-8 w-8 p-0 shadow-md transition-all ${
-                isLocked
-                  ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground'
-                  : 'bg-primary hover:bg-primary/90 text-primary-foreground'
-              }`}
-              size="sm"
-              title={isLocked ? 'Unlock' : 'Lock'}
-            >
-              {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
-            </Button>
+        {/* Zoom Controls - Bottom Left (Desktop only) */}
+        {!isMobile && (
+          <div className="fixed bottom-4 left-4 z-50">
+            <div className="flex flex-col gap-1 bg-card border-2 border-primary/20 rounded-lg shadow-xl p-1.5 backdrop-blur-sm">
+              <Button
+                onClick={handleZoomIn}
+                disabled={isLocked || zoom >= 2.0}
+                className="rounded-md h-8 w-8 p-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all disabled:opacity-50"
+                size="sm"
+                title="Zoom In (+)"
+              >
+                <ZoomIn className="h-4 w-4" />
+              </Button>
+              <Button
+                onClick={handleZoomOut}
+                disabled={isLocked || zoom <= 0.5}
+                className="rounded-md h-8 w-8 p-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all disabled:opacity-50"
+                size="sm"
+                title="Zoom Out (-)"
+              >
+                <ZoomOut className="h-4 w-4" />
+              </Button>
+              <Button
+                onClick={handleFitView}
+                disabled={isLocked}
+                className="rounded-md h-8 w-8 p-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all disabled:opacity-50"
+                size="sm"
+                title="Fit View (75%)"
+              >
+                <Maximize2 className="h-4 w-4" />
+              </Button>
+              <Button
+                onClick={handleToggleLock}
+                className={`rounded-md h-8 w-8 p-0 shadow-md transition-all ${
+                  isLocked
+                    ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground'
+                    : 'bg-primary hover:bg-primary/90 text-primary-foreground'
+                }`}
+                size="sm"
+                title={isLocked ? 'Unlock' : 'Lock'}
+              >
+                {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Floating Comments Panel */}
       {!isCommentsCollapsed && (
-        <div className="fixed bottom-4 right-4 z-50 w-[90vw] sm:w-96 max-h-[70vh] bg-background border border-border rounded-lg shadow-2xl flex flex-col">
+        <div className={cn(
+          "fixed z-50 bg-background border border-border rounded-lg shadow-2xl flex flex-col",
+          isMobile ? "bottom-4 left-4 right-4 w-auto max-h-[60vh]" : "bottom-4 right-4 w-96 max-h-[70vh]"
+        )}>
           <div className="flex items-center justify-between p-3 border-b border-border bg-muted/30">
             <h3 className="text-sm font-semibold flex items-center gap-2">
               <MessageSquare className="h-4 w-4" />
