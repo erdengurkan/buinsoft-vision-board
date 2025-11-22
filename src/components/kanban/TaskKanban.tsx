@@ -210,8 +210,9 @@ export const TaskKanban = ({
       
       // Two-finger swipe on MacBook (deltaX) should pan, not zoom
       if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-        // Horizontal scroll = pan
+        // Horizontal scroll = pan - prevent browser back/forward navigation
         e.preventDefault();
+        e.stopPropagation();
         setPan((prevPan) => ({
           x: prevPan.x + e.deltaX,
           y: prevPan.y,
@@ -231,12 +232,27 @@ export const TaskKanban = ({
       }
     };
 
+    // Prevent browser back/forward navigation on swipe (MacBook trackpad)
+    const handlePopState = (e: PopStateEvent) => {
+      // Only prevent if we're actively panning or have pan state
+      if (pan.x !== 20 || pan.y !== 20) {
+        e.preventDefault();
+        // Push current state to prevent navigation
+        window.history.pushState(null, '', window.location.href);
+      }
+    };
+
     container.addEventListener('wheel', handleWheel, { passive: false });
+    window.addEventListener('popstate', handlePopState);
+    
+    // Push state to prevent back navigation
+    window.history.pushState(null, '', window.location.href);
     
     return () => {
       container.removeEventListener('wheel', handleWheel);
+      window.removeEventListener('popstate', handlePopState);
     };
-  }, [isMobile, isLocked]); // Removed 'zoom' from dependencies to prevent infinite loop
+  }, [isMobile, isLocked, pan.x, pan.y]); // Added pan to detect active panning
 
   // Zoom control handlers
   const handleZoomIn = () => {
@@ -488,7 +504,10 @@ export const TaskKanban = ({
           }),
           ...(!isMobile && {
             cursor: isLocked ? 'default' : isDragging ? 'grabbing' : 'grab'
-          })
+          }),
+          // Disable browser back/forward navigation on swipe (MacBook trackpad)
+          overscrollBehaviorX: 'none' as const,
+          overscrollBehaviorY: 'none' as const,
         }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
