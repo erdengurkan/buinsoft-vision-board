@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Tooltip,
   TooltipContent,
@@ -61,6 +61,17 @@ export const Header = ({ onMenuClick, isMobile: isMobileProp }: HeaderProps = {}
       setIsProjectModalOpen(true);
     }
   };
+
+  useEffect(() => {
+    if (!project) return;
+    const params = new URLSearchParams(location.search);
+    if (params.get("editProject") === "true" && !isProjectModalOpen) {
+      setIsProjectModalOpen(true);
+      params.delete("editProject");
+      const next = params.toString() ? `${location.pathname}?${params.toString()}` : location.pathname;
+      navigate(next, { replace: true });
+    }
+  }, [project, location.search, location.pathname, isProjectModalOpen, navigate]);
 
   const handleSaveProject = (projectData: Partial<Project>) => {
     if (project) {

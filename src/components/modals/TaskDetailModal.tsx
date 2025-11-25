@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
-import { Task, Priority } from "@/types";
+import { Task, Priority, Project } from "@/types";
 import { TaskWorklog } from "@/components/tasks/TaskWorklog";
 import { Comments } from "@/components/comments/Comments";
 import { useWorklog } from "@/hooks/useWorklog";
@@ -12,7 +12,7 @@ import { useApp } from "@/contexts/AppContext";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { User, Flag, Workflow, Edit2, Check, X, CalendarIcon } from "lucide-react";
+import { User, Flag, Workflow, Edit2, Check, X, CalendarIcon, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -28,8 +28,8 @@ import { teamMembers } from "@/data/mockData";
 import { useWorkflow } from "@/contexts/WorkflowContext";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useIsMobile } from "@/hooks/use-mobile";
-
-const API_URL = import.meta.env.VITE_API_URL || "/api";
+import { ProjectFormModal } from "@/components/modals/ProjectFormModal";
+import api from "@/lib/api";
 
 interface TaskDetailModalProps {
   open: boolean;
@@ -44,6 +44,8 @@ const priorityColors: Record<Priority, string> = {
   High: "bg-priority-high text-white",
   Critical: "bg-red-900 text-white",
 };
+
+const NO_PROJECT = "__none__";
 
 export const TaskDetailModal = ({
   open,
@@ -65,13 +67,7 @@ export const TaskDetailModal = ({
   // Task mutation - MUST be before conditional returns (Rules of Hooks)
   const updateTaskMutation = useMutation({
     mutationFn: async ({ taskId, updates }: { taskId: string; updates: Partial<Task> }) => {
-      const res = await fetch(`${API_URL}/tasks/${taskId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updates),
-      });
-      if (!res.ok) throw new Error("Failed to update task");
-      return res.json();
+      return api.patch<Task>(`/tasks/${taskId}`, updates);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
@@ -90,10 +86,21 @@ export const TaskDetailModal = ({
     priority: "Medium" as Priority,
     status: "Todo",
     deadline: undefined,
+    linkedProjectId: null,
   });
+  const [linkedProjectId, setLinkedProjectId] = useState<string | null>(null);
+  const [isProjectCreateModalOpen, setIsProjectCreateModalOpen] = useState(false);
+  const [isCreatingProject, setIsCreatingProject] = useState(false);
+  const selectedLinkedProject = linkedProjectId ? projects.find((p) => p.id === linkedProjectId) : null;
+  const displayLinkedProjectTitle =
+    selectedLinkedProject?.title ||
+    task?.linkedProject?.title ||
+    task?.linkedProjectTitle ||
+    null;
 
   useEffect(() => {
     if (task) {
+      const linkedId = task.linkedProject?.id ?? task.linkedProjectId ?? null;
       const initialData = {
         title: task.title,
         description: task.description || "",
@@ -102,9 +109,11 @@ export const TaskDetailModal = ({
         status: task.status,
         deadline: task.deadline,
         followUp: task.followUp,
+        linkedProjectId: linkedId,
       };
       setInitialFormData(initialData);
       setFormData(initialData);
+      setLinkedProjectId(linkedId);
       // Open in edit mode when modal opens
       setIsEditing(true);
     }
@@ -150,6 +159,7 @@ export const TaskDetailModal = ({
 
       setIsEditing(false);
       toast.success("Task updated");
+      onOpenChange(false);
     } catch (error) {
       toast.error("Failed to update task");
     }
@@ -158,6 +168,22 @@ export const TaskDetailModal = ({
   const handleCancel = () => {
     setFormData(initialFormData);
     setIsEditing(false);
+  };
+
+  const handleLinkedProjectChange = (value: string) => {
+    const normalized = value === NO_PROJECT ? null : value;
+    setLinkedProjectId(normalized);
+    setFormData((prev) => ({
+      ...prev,
+      linkedProjectId: normalized ?? null,
+    }));
+  };
+
+  const handleOpenLinkedProject = () => {
+    if (linkedProjectId) {
+      navigate(`/project/${linkedProjectId}`);
+      onOpenChange(false);
+    }
   };
 
   // Check if form data has changed
@@ -170,7 +196,8 @@ export const TaskDetailModal = ({
       formData.priority !== initialFormData.priority ||
       formData.status !== initialFormData.status ||
       formData.deadline?.getTime() !== initialFormData.deadline?.getTime() ||
-      formData.followUp !== initialFormData.followUp
+      formData.followUp !== initialFormData.followUp ||
+      formData.linkedProjectId !== initialFormData.linkedProjectId
     );
   };
 
@@ -198,6 +225,55 @@ export const TaskDetailModal = ({
       handleCloseRequest();
     } else {
       onOpenChange(newOpen);
+    }
+  };
+
+  const handleCreateLinkedProject = async (projectData: Partial<Project>) => {
+    try {
+      setIsCreatingProject(true);
+      const now = new Date();
+      const toISO = (value?: Date | string | null) => {
+        if (!value) return undefined;
+        const date = value instanceof Date ? value : new Date(value);
+        return date.toISOString();
+      };
+
+      const payload = {
+        title: projectData.title?.trim() || task?.title || "New Project",
+        client: projectData.client?.trim() || project?.client || "Internal",
+        assignee: projectData.assignee || project?.assignee || "",
+        priority: projectData.priority || "Medium",
+        status: projectData.status || "Potential",
+        description: projectData.description || "",
+        startDate: toISO(projectData.startDate) || now.toISOString(),
+        endDate: toISO(projectData.endDate) || now.toISOString(),
+        deadline: projectData.deadline ? toISO(projectData.deadline) : null,
+        followUp: projectData.followUp ?? false,
+        labels: (projectData.labels || []).map((label) => ({
+          name: label.name,
+          color: label.color,
+        })),
+        sharedWithAll: projectData.sharedWithAll ?? true,
+        sharedWith: projectData.sharedWith || [],
+      };
+
+      const newProject = await api.post("/projects", payload);
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      toast.success(`Project "${newProject.title}" created`);
+      setLinkedProjectId(newProject.id);
+      setFormData((prev) => ({
+        ...prev,
+        linkedProjectId: newProject.id,
+      }));
+      setIsProjectCreateModalOpen(false);
+      onOpenChange(false);
+      navigate(`/project/${newProject.id}?editProject=true`);
+    } catch (error) {
+      console.error("Failed to create project from task:", error);
+      toast.error("Failed to create project");
+      setIsProjectCreateModalOpen(true);
+    } finally {
+      setIsCreatingProject(false);
     }
   };
 
@@ -435,14 +511,79 @@ export const TaskDetailModal = ({
               ) : (
                 <div
                   className={cn(
-                    "text-muted-foreground bg-muted/30 rounded-lg prose prose-sm max-w-none prose-p:my-0.5 prose-p:first:mt-0 prose-p:last:mb-0 prose-headings:my-1 prose-headings:first:mt-0 prose-ul:my-1 prose-ol:my-1 prose-li:my-0",
+                    "text-muted-foreground bg-muted/30 rounded-lg prose prose-sm max-w-none prose-p:my-0.5 prose-p:first:mt-0 prose-p:last:mb-0 prose-headings:my-1 prose-headings:first:mt-0 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 cursor-pointer hover:bg-muted/50 transition-colors",
                     isMobile ? "text-[9px] p-1.5 min-h-[40px]" : "text-[10px] sm:text-xs md:text-sm p-1.5 sm:p-2 md:p-3 min-h-[40px] sm:min-h-[50px] md:min-h-[60px]"
                   )}
                   dangerouslySetInnerHTML={{
                     __html: task.description || "<p class='text-muted-foreground italic'>No description</p>",
                   }}
+                  onDoubleClick={() => setIsEditing(true)}
                   onContextMenu={(e) => isMobile && e.preventDefault()}
                 />
+              )}
+            </div>
+
+            <div className={cn("space-y-1", isMobile ? "space-y-0.5" : "sm:space-y-2")}>
+              <Label className={cn("font-medium", isMobile ? "text-[9px]" : "text-[10px] sm:text-xs md:text-sm")}>
+                Link Project
+              </Label>
+              {isEditing ? (
+                <div className="space-y-2">
+                  <div className={cn("flex flex-col gap-2", isMobile ? "" : "sm:flex-row sm:items-center")}>
+                    <Select
+                      value={linkedProjectId ?? NO_PROJECT}
+                      onValueChange={handleLinkedProjectChange}
+                    >
+                      <SelectTrigger className={cn("w-full", isMobile ? "h-7 text-[10px]" : "sm:w-64")}>
+                        <SelectValue placeholder="Select project" />
+                      </SelectTrigger>
+                      <SelectContent side={isMobile ? "top" : "bottom"} align="start">
+                        <SelectItem value={NO_PROJECT}>No linked project</SelectItem>
+                        {projects.map((proj) => (
+                          <SelectItem key={proj.id} value={proj.id}>
+                            {proj.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={!linkedProjectId}
+                      onClick={handleOpenLinkedProject}
+                      className={cn(
+                        !linkedProjectId && "opacity-50 cursor-not-allowed",
+                        isMobile ? "h-7 text-[10px]" : ""
+                      )}
+                    >
+                      <ExternalLink className="h-4 w-4 mr-1" />
+                      Open
+                    </Button>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsProjectCreateModalOpen(true)}
+                    disabled={isCreatingProject}
+                    className={isMobile ? "h-7 text-[10px]" : ""}
+                  >
+                    Start new project
+                  </Button>
+                </div>
+              ) : linkedProjectId || task.linkedProjectId ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="outline" className={cn("text-xs", isMobile && "text-[9px] px-1.5 py-0.5")}>
+                    {displayLinkedProjectTitle || "Linked Project"}
+                  </Badge>
+                  <Button variant="ghost" size="sm" onClick={handleOpenLinkedProject} className={isMobile ? "h-7 text-[10px]" : ""}>
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    Open project
+                  </Button>
+                </div>
+              ) : (
+                <p className={cn("text-muted-foreground", isMobile ? "text-[9px]" : "text-sm")}>
+                  No project linked
+                </p>
               )}
             </div>
 
@@ -594,6 +735,12 @@ export const TaskDetailModal = ({
       </DialogContent>
         </Dialog>
       )}
+
+      <ProjectFormModal
+        open={isProjectCreateModalOpen}
+        onOpenChange={setIsProjectCreateModalOpen}
+        onSave={handleCreateLinkedProject}
+      />
 
       {/* Unsaved Changes Confirmation Dialog */}
       <Dialog 

@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useAuth } from "@/contexts/AuthContext";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -24,7 +25,7 @@ interface SidebarProps {
   onMobileOpenChange?: (open: boolean) => void;
 }
 
-const SidebarContent = ({ isCollapsed, onToggle }: { isCollapsed: boolean; onToggle?: () => void }) => {
+const SidebarContent = ({ isCollapsed, onToggle, filteredNavigation }: { isCollapsed: boolean; onToggle?: () => void; filteredNavigation: typeof navigation }) => {
   return (
     <>
       <div className="flex h-16 items-center justify-between px-4 border-b border-border">
@@ -43,7 +44,7 @@ const SidebarContent = ({ isCollapsed, onToggle }: { isCollapsed: boolean; onTog
         )}
       </div>
       <nav className="p-4 space-y-1">
-        {navigation.map((item) => (
+        {filteredNavigation.map((item) => (
           <NavLink
             key={item.name}
             to={item.href}
@@ -76,13 +77,23 @@ const SidebarContent = ({ isCollapsed, onToggle }: { isCollapsed: boolean; onTog
 export const Sidebar = ({ isCollapsed = false, onToggle, isMobile = false, isMobileOpen = false, onMobileOpenChange }: SidebarProps) => {
   const detectedMobile = useIsMobile();
   const mobile = isMobile !== undefined ? isMobile : detectedMobile;
+  const { user } = useAuth();
+
+  // Filter navigation based on user role
+  const filteredNavigation = navigation.filter((item) => {
+    // Hide Team and Contacts for non-admin users
+    if ((item.name === "Team" || item.name === "Contacts") && user?.userRole !== "Admin") {
+      return false;
+    }
+    return true;
+  });
 
   if (mobile) {
     return (
       <Sheet open={isMobileOpen} onOpenChange={onMobileOpenChange}>
         <SheetContent side="left" className="w-[18rem] p-0">
           <div className="flex flex-col h-full">
-            <SidebarContent isCollapsed={false} onToggle={() => onMobileOpenChange?.(false)} />
+            <SidebarContent isCollapsed={false} onToggle={() => onMobileOpenChange?.(false)} filteredNavigation={filteredNavigation} />
           </div>
         </SheetContent>
       </Sheet>
@@ -94,7 +105,7 @@ export const Sidebar = ({ isCollapsed = false, onToggle, isMobile = false, isMob
       "border-r border-border bg-card transition-all duration-300 relative hidden md:block",
       isCollapsed ? "w-16" : "w-64"
     )}>
-      <SidebarContent isCollapsed={isCollapsed} onToggle={onToggle} />
+      <SidebarContent isCollapsed={isCollapsed} onToggle={onToggle} filteredNavigation={filteredNavigation} />
     </aside>
   );
 };

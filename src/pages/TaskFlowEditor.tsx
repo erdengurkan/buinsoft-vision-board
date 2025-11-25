@@ -7,8 +7,7 @@ import { Node, Edge } from "@xyflow/react";
 import { toast } from "sonner";
 import { FlowDiagram } from "@/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-
-const API_URL = import.meta.env.VITE_API_URL || "/api";
+import api from "@/lib/api";
 
 const TaskFlowEditorPage = () => {
   const { projectId, taskId } = useParams<{ projectId: string; taskId: string }>();
@@ -55,13 +54,7 @@ const TaskFlowEditorPage = () => {
 
   const updateTaskMutation = useMutation({
     mutationFn: async ({ taskId, updates }: { taskId: string; updates: Partial<any> }) => {
-      const res = await fetch(`${API_URL}/tasks/${taskId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updates),
-      });
-      if (!res.ok) throw new Error("Failed to update task");
-      return res.json();
+      return api.patch(`/tasks/${taskId}`, updates);
     },
     onSuccess: (data, variables) => {
       // Optimistic update: preserve task status when updating flowDiagram

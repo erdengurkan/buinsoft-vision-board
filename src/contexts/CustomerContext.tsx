@@ -1,7 +1,7 @@
 import React, { createContext, useContext, ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useGlobalSSE } from "@/hooks/useGlobalSSE";
+import api from "@/lib/api";
 
 interface Customer {
   id: string;
@@ -23,35 +23,19 @@ interface CustomerContextType {
 
 const CustomerContext = createContext<CustomerContextType | undefined>(undefined);
 
-const API_URL = import.meta.env.VITE_API_URL || "/api";
-
 export const CustomerProvider = ({ children }: { children: ReactNode }) => {
   const queryClient = useQueryClient();
-
-  // Enable real-time updates via SSE
-  useGlobalSSE();
 
   const { data: customers = [], isLoading } = useQuery({
     queryKey: ["customers"],
     queryFn: async () => {
-      const res = await fetch(`${API_URL}/customers`);
-      if (!res.ok) throw new Error("Failed to fetch customers");
-      return res.json();
+      return api.get<Customer[]>("/customers");
     },
   });
 
   const addCustomerMutation = useMutation({
     mutationFn: async (customer: Omit<Customer, "id" | "createdAt" | "updatedAt">) => {
-      const res = await fetch(`${API_URL}/customers`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(customer),
-      });
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({ error: "Failed to create customer" }));
-        throw new Error(error.error || "Failed to create customer");
-      }
-      return res.json();
+      return api.post<Customer>("/customers", customer);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["customers"] });
@@ -64,16 +48,7 @@ export const CustomerProvider = ({ children }: { children: ReactNode }) => {
 
   const updateCustomerMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Customer> }) => {
-      const res = await fetch(`${API_URL}/customers/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updates),
-      });
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({ error: "Failed to update customer" }));
-        throw new Error(error.error || "Failed to update customer");
-      }
-      return res.json();
+      return api.patch<Customer>(`/customers/${id}`, updates);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["customers"] });
@@ -86,14 +61,7 @@ export const CustomerProvider = ({ children }: { children: ReactNode }) => {
 
   const deleteCustomerMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`${API_URL}/customers/${id}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({ error: "Failed to delete customer" }));
-        throw new Error(error.error || "Failed to delete customer");
-      }
-      return res.json();
+      return api.delete(`/customers/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["customers"] });

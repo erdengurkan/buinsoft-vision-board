@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useTodos } from "@/contexts/TodoContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useApp } from "@/contexts/AppContext";
+import api from "@/lib/api";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarIcon, Plus, Trash2, Edit2, Check, X, UserPlus, X as XIcon, ExternalLink, Calendar as CalendarIconLucide } from "lucide-react";
 import {
   ContextMenu,
@@ -39,6 +41,9 @@ export default function Todos() {
   const [editingDeadlinePopoverOpen, setEditingDeadlinePopoverOpen] = useState(false);
   const [mentionsPopoverOpen, setMentionsPopoverOpen] = useState(false);
   const [editingMentionsPopoverOpen, setEditingMentionsPopoverOpen] = useState(false);
+  const NO_PROJECT = "__none__";
+  const [newTodoProjectId, setNewTodoProjectId] = useState<string | null>(null);
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
 
   const CURRENT_USER = user?.name || "Emre Kılınç";
 
@@ -113,14 +118,7 @@ export default function Todos() {
       }
       // If task not found in current projects, try to fetch from API
       console.warn("⚠️ Task not found in local projects, attempting to fetch from API:", todo.taskId);
-      const API_URL = import.meta.env.VITE_API_URL || "/api";
-      fetch(`${API_URL}/tasks/${todo.taskId}`)
-        .then((taskRes) => {
-          if (taskRes.ok) {
-            return taskRes.json();
-          }
-          return null;
-        })
+      api.get(`/tasks/${todo.taskId}`)
         .then((taskData) => {
           if (taskData?.project?.id) {
             navigate(`/project/${taskData.project.id}?taskId=${todo.taskId}`);
@@ -156,11 +154,13 @@ export default function Todos() {
       deadline: newTodoDeadline,
       mentions: newTodoMentions.length > 0 ? newTodoMentions : undefined,
       order: todayTodos.length + upcomingTodos.length,
+      projectId: newTodoProjectId,
     });
 
     setNewTodoTitle("");
     setNewTodoDeadline(undefined);
     setNewTodoMentions([]);
+    setNewTodoProjectId(null);
     toast.success("Todo added");
   };
 
@@ -169,6 +169,7 @@ export default function Todos() {
     setEditingTitle(todo.title);
     setEditingDeadline(todo.deadline);
     setEditingMentions(todo.mentions || []);
+    setEditingProjectId(todo.projectId ?? null);
   };
 
   const handleSaveEdit = (id: string) => {
@@ -181,12 +182,14 @@ export default function Todos() {
       title: editingTitle.trim(),
       deadline: editingDeadline,
       mentions: editingMentions.length > 0 ? editingMentions : undefined,
+      projectId: editingProjectId,
     });
 
     setEditingId(null);
     setEditingTitle("");
     setEditingDeadline(undefined);
     setEditingMentions([]);
+    setEditingProjectId(null);
     toast.success("Todo updated");
   };
 
@@ -195,6 +198,7 @@ export default function Todos() {
     setEditingTitle("");
     setEditingDeadline(undefined);
     setEditingMentions([]);
+    setEditingProjectId(null);
   };
 
   const toggleMention = (name: string, mentions: string[], setMentions: (m: string[]) => void) => {
@@ -208,6 +212,14 @@ export default function Todos() {
   const handleDelete = (id: string) => {
     deleteTodo(id);
     toast.success("Todo deleted");
+  };
+
+  const handleProjectNavigate = (projectId: string, taskId?: string) => {
+    if (taskId) {
+      navigate(`/project/${projectId}?taskId=${taskId}`);
+      return;
+    }
+    navigate(`/project/${projectId}`);
   };
 
   return (
@@ -239,6 +251,22 @@ export default function Todos() {
               }}
               className="flex-1"
             />
+            <Select
+              value={newTodoProjectId ?? NO_PROJECT}
+              onValueChange={(value) => setNewTodoProjectId(value === NO_PROJECT ? null : value)}
+            >
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Proje seç" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_PROJECT}>Projesiz</SelectItem>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Popover open={deadlinePopoverOpen} onOpenChange={setDeadlinePopoverOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" className={cn("w-[200px] justify-start text-left font-normal", !newTodoDeadline && "text-muted-foreground")}>
@@ -353,6 +381,22 @@ export default function Todos() {
                         className="flex-1"
                         autoFocus
                       />
+                      <Select
+                        value={editingProjectId ?? NO_PROJECT}
+                        onValueChange={(value) => setEditingProjectId(value === NO_PROJECT ? null : value)}
+                      >
+                        <SelectTrigger className="w-[150px]">
+                          <SelectValue placeholder="Proje seç" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={NO_PROJECT}>Projesiz</SelectItem>
+                          {projects.map((project) => (
+                            <SelectItem key={project.id} value={project.id}>
+                              {project.title}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <Popover open={editingDeadlinePopoverOpen} onOpenChange={setEditingDeadlinePopoverOpen}>
                         <PopoverTrigger asChild>
                           <Button variant="outline" size="sm" className={cn("w-[120px] justify-start text-left font-normal text-xs", !editingDeadline && "text-muted-foreground")}>
@@ -418,13 +462,27 @@ export default function Todos() {
                   ) : (
                     <>
                       <div className="flex-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <div className="font-medium">{todo.title}</div>
                           {todo.taskId && (
                             <Badge variant="outline" className="text-xs">
                               <ExternalLink className="h-3 w-3 mr-1" />
                               Task
                             </Badge>
+                          )}
+                          {todo.projectId && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="h-7 text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleProjectNavigate(todo.projectId!, todo.taskId);
+                              }}
+                            >
+                              <ExternalLink className="h-3 w-3 mr-1" />
+                              {todo.projectTitle || "Proje"}
+                            </Button>
                           )}
                         </div>
                         {todo.mentions && todo.mentions.length > 0 && (
@@ -547,6 +605,22 @@ export default function Todos() {
                         className="flex-1"
                         autoFocus
                       />
+                      <Select
+                        value={editingProjectId ?? NO_PROJECT}
+                        onValueChange={(value) => setEditingProjectId(value === NO_PROJECT ? null : value)}
+                      >
+                        <SelectTrigger className="w-[150px]">
+                          <SelectValue placeholder="Proje seç" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={NO_PROJECT}>Projesiz</SelectItem>
+                          {projects.map((project) => (
+                            <SelectItem key={project.id} value={project.id}>
+                              {project.title}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <Popover open={editingDeadlinePopoverOpen} onOpenChange={setEditingDeadlinePopoverOpen}>
                         <PopoverTrigger asChild>
                           <Button variant="outline" size="sm" className={cn("w-[120px] justify-start text-left font-normal text-xs", !editingDeadline && "text-muted-foreground")}>
@@ -612,13 +686,27 @@ export default function Todos() {
                   ) : (
                     <>
                       <div className="flex-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <div className="font-medium">{todo.title}</div>
                           {todo.taskId && (
                             <Badge variant="outline" className="text-xs">
                               <ExternalLink className="h-3 w-3 mr-1" />
                               Task
                             </Badge>
+                          )}
+                          {todo.projectId && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="h-7 text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleProjectNavigate(todo.projectId!, todo.taskId);
+                              }}
+                            >
+                              <ExternalLink className="h-3 w-3 mr-1" />
+                              {todo.projectTitle || "Proje"}
+                            </Button>
                           )}
                         </div>
                         {todo.mentions && todo.mentions.length > 0 && (
@@ -719,7 +807,23 @@ export default function Todos() {
                     onCheckedChange={() => toggleTodo(todo.id)}
                   />
                   <div className="flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
                     <div className="font-medium line-through">{todo.title}</div>
+                      {todo.projectId && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="h-6 text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleProjectNavigate(todo.projectId, todo.taskId);
+                          }}
+                        >
+                          <ExternalLink className="h-3 w-3 mr-1" />
+                          {todo.projectTitle || "Proje"}
+                        </Button>
+                      )}
+                    </div>
                     {todo.deadline && (
                       <div className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
                         <CalendarIcon className="h-3 w-3" />

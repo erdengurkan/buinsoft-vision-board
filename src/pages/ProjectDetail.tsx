@@ -24,8 +24,7 @@ import { UndoRedoProvider, useUndoRedo, UndoableAction } from "@/contexts/UndoRe
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-
-const API_URL = import.meta.env.VITE_API_URL || "/api";
+import api from "@/lib/api";
 
 const priorityColors: Record<Priority, string> = {
   Low: "bg-priority-low text-white",
@@ -63,13 +62,7 @@ const ProjectDetailInner = () => {
   // Task mutations - MUST be before conditional returns (Rules of Hooks)
   const updateTaskMutation = useMutation({
     mutationFn: async ({ taskId, updates }: { taskId: string; updates: Partial<Task> }) => {
-      const res = await fetch(`${API_URL}/tasks/${taskId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updates),
-      });
-      if (!res.ok) throw new Error("Failed to update task");
-      return res.json();
+      return api.patch<Task>(`/tasks/${taskId}`, updates);
     },
     onSuccess: (data, variables) => {
       // Update with server response to ensure consistency
@@ -85,7 +78,12 @@ const ProjectDetailInner = () => {
                   if (t.id === variables.taskId) {
                     // Merge server response with existing task to preserve all fields
                     // This ensures status and other fields aren't lost
-                    return { ...t, ...data };
+                    return {
+                      ...t,
+                      ...data,
+                      linkedProjectId: data.linkedProject?.id ?? data.linkedProjectId ?? null,
+                      linkedProjectTitle: data.linkedProject?.title ?? data.linkedProjectTitle ?? null,
+                    };
                   }
                   return t;
                 }),
@@ -105,13 +103,7 @@ const ProjectDetailInner = () => {
 
   const createTaskMutation = useMutation({
     mutationFn: async (taskData: Partial<Task> & { projectId: string }) => {
-      const res = await fetch(`${API_URL}/tasks`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(taskData),
-      });
-      if (!res.ok) throw new Error("Failed to create task");
-      return res.json();
+      return api.post<Task>("/tasks", taskData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
@@ -120,11 +112,7 @@ const ProjectDetailInner = () => {
 
   const deleteTaskMutation = useMutation({
     mutationFn: async (taskId: string) => {
-      const res = await fetch(`${API_URL}/tasks/${taskId}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) throw new Error("Failed to delete task");
-      return res.json();
+      return api.delete(`/tasks/${taskId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
@@ -133,13 +121,7 @@ const ProjectDetailInner = () => {
 
   const reorderTasksMutation = useMutation({
     mutationFn: async ({ projectId, taskOrders }: { projectId: string; taskOrders: Array<{ id: string; order: number }> }) => {
-      const res = await fetch(`${API_URL}/tasks/reorder`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, taskOrders }),
-      });
-      if (!res.ok) throw new Error("Failed to reorder tasks");
-      return res.json();
+      return api.post("/tasks/reorder", { projectId, taskOrders });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
@@ -897,31 +879,21 @@ const ProjectDetail = () => {
 
   // Undo handler
   const handleUndo = useCallback(async (action: UndoableAction) => {
-    const API_URL = import.meta.env.VITE_API_URL || "/api";
-
     switch (action.type) {
       case 'TASK_CREATE':
-        await fetch(`${API_URL}/tasks/${action.task.id}`, { method: "DELETE" });
+        await api.delete(`/tasks/${action.task.id}`);
         queryClient.invalidateQueries({ queryKey: ["projects"] });
         toast.success("Undone: Task creation");
         break;
 
       case 'TASK_UPDATE':
-        await fetch(`${API_URL}/tasks/${action.taskId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(action.before),
-        });
+        await api.patch(`/tasks/${action.taskId}`, action.before);
         queryClient.invalidateQueries({ queryKey: ["projects"] });
         toast.success("Undone: Task update");
         break;
 
       case 'TASK_DELETE':
-        await fetch(`${API_URL}/tasks`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...action.task, projectId: action.projectId }),
-        });
+        await api.post("/tasks", { ...action.task, projectId: action.projectId });
         queryClient.invalidateQueries({ queryKey: ["projects"] });
         toast.success("Undone: Task deletion");
         break;
@@ -951,11 +923,7 @@ const ProjectDetail = () => {
       case 'TASK_REORDER':
         // Revert to old orders
         await Promise.all(action.previousOrders.map(order =>
-          fetch(`${API_URL}/tasks/${order.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ order: order.order, status: order.status }),
-          })
+          api.patch(`/tasks/${order.id}`, { order: order.order, status: order.status })
         ));
         queryClient.invalidateQueries({ queryKey: ["projects"] });
         toast.success("Undone: Task reorder");
@@ -965,31 +933,21 @@ const ProjectDetail = () => {
 
   // Redo handler
   const handleRedo = useCallback(async (action: UndoableAction) => {
-    const API_URL = import.meta.env.VITE_API_URL || "/api";
-
     switch (action.type) {
       case 'TASK_CREATE':
-        await fetch(`${API_URL}/tasks`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...action.task, projectId: action.projectId }),
-        });
+        await api.post("/tasks", { ...action.task, projectId: action.projectId });
         queryClient.invalidateQueries({ queryKey: ["projects"] });
         toast.success("Redone: Task creation");
         break;
 
       case 'TASK_UPDATE':
-        await fetch(`${API_URL}/tasks/${action.taskId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(action.after),
-        });
+        await api.patch(`/tasks/${action.taskId}`, action.after);
         queryClient.invalidateQueries({ queryKey: ["projects"] });
         toast.success("Redone: Task update");
         break;
 
       case 'TASK_DELETE':
-        await fetch(`${API_URL}/tasks/${action.task.id}`, { method: "DELETE" });
+        await api.delete(`/tasks/${action.task.id}`);
         queryClient.invalidateQueries({ queryKey: ["projects"] });
         toast.success("Redone: Task deletion");
         break;
@@ -1022,11 +980,7 @@ const ProjectDetail = () => {
       case 'TASK_REORDER':
         // Apply new orders
         await Promise.all(action.taskOrders.map(order =>
-          fetch(`${API_URL}/tasks/${order.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ order: order.order, status: order.status }),
-          })
+          api.patch(`/tasks/${order.id}`, { order: order.order, status: order.status })
         ));
         queryClient.invalidateQueries({ queryKey: ["projects"] });
         toast.success("Redone: Task reorder");

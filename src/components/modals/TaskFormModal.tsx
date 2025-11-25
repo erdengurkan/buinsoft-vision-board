@@ -15,6 +15,7 @@ import { useState, useEffect } from "react";
 import { teamMembers } from "@/data/mockData";
 import { useWorkflow } from "@/contexts/WorkflowContext";
 import { useQuery } from "@tanstack/react-query";
+import api from "@/lib/api";
 
 interface TaskFormModalProps {
   open: boolean;
@@ -24,8 +25,6 @@ interface TaskFormModalProps {
   onSave: (task: Partial<Task>) => void;
 }
 
-const API_URL = import.meta.env.VITE_API_URL || "/api";
-
 export const TaskFormModal = ({ open, onOpenChange, task, defaultStatus, onSave }: TaskFormModalProps) => {
   const { taskStatuses } = useWorkflow();
   
@@ -33,9 +32,7 @@ export const TaskFormModal = ({ open, onOpenChange, task, defaultStatus, onSave 
   const { data: users = [] } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {
-      const res = await fetch(`${API_URL}/users`);
-      if (!res.ok) throw new Error("Failed to fetch users");
-      return res.json();
+      return api.get("/users");
     },
   });
 

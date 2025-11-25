@@ -5,6 +5,7 @@ import { teamMembers } from "@/data/mockData";
 import { useTaskTimer } from "@/contexts/TaskTimerContext";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
@@ -15,7 +16,7 @@ import { toast } from "sonner";
 interface TaskInlineEditProps {
   task: Task;
   projectId: string;
-  option: "work" | "assign" | "deadline" | "priority" | "hardness" | "benefit";
+  option: "work" | "assign" | "deadline" | "priority" | "hardness" | "benefit" | "title";
   onSave: (updates: Partial<Task>) => void;
   onClose: () => void;
   mousePosition?: { x: number; y: number } | null;
@@ -30,6 +31,7 @@ export const TaskInlineEdit = ({
   mousePosition 
 }: TaskInlineEditProps) => {
   const { startTimer, isRunning, activeTimer } = useTaskTimer();
+  const [selectedTitle, setSelectedTitle] = useState(task.title || "");
   const [selectedAssignee, setSelectedAssignee] = useState(task.assignee || "");
   const [selectedDeadline, setSelectedDeadline] = useState<Date | undefined>(
     task.deadline ? new Date(task.deadline) : undefined
@@ -80,6 +82,16 @@ export const TaskInlineEdit = ({
     onClose();
   };
 
+  const handleSaveTitle = () => {
+    if (!selectedTitle.trim()) {
+      toast.error("Title cannot be empty");
+      return;
+    }
+    onSave({ title: selectedTitle });
+    setOpen(false);
+    onClose();
+  };
+
   const renderContent = () => {
     switch (option) {
       case "work":
@@ -97,6 +109,37 @@ export const TaskInlineEdit = ({
               </Button>
               <Button size="sm" onClick={handleWorkOnThis}>
                 Start Timer
+              </Button>
+            </div>
+          </div>
+        );
+
+      case "title":
+        return (
+          <div className="space-y-3 p-3 w-64">
+            <div className="space-y-2">
+              <Label>Edit Title</Label>
+              <Input
+                value={selectedTitle}
+                onChange={(e) => setSelectedTitle(e.target.value)}
+                placeholder="Task title"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleSaveTitle();
+                  } else if (e.key === "Escape") {
+                    setOpen(false);
+                    onClose();
+                  }
+                }}
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" size="sm" onClick={() => { setOpen(false); onClose(); }}>
+                Cancel
+              </Button>
+              <Button size="sm" onClick={handleSaveTitle} disabled={!selectedTitle.trim()}>
+                Save
               </Button>
             </div>
           </div>

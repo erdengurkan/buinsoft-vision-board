@@ -17,6 +17,7 @@ import { useState, useEffect } from "react";
 import { teamMembers } from "@/data/mockData";
 import { useWorkflow } from "@/contexts/WorkflowContext";
 import { useQuery } from "@tanstack/react-query";
+import api from "@/lib/api";
 
 interface ProjectFormModalProps {
   open: boolean;
@@ -24,8 +25,6 @@ interface ProjectFormModalProps {
   project?: Project;
   onSave: (project: Partial<Project>) => void;
 }
-
-const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 export const ProjectFormModal = ({ open, onOpenChange, project, onSave }: ProjectFormModalProps) => {
   const { projectStatuses, labels: availableLabels } = useWorkflow();
@@ -35,9 +34,7 @@ export const ProjectFormModal = ({ open, onOpenChange, project, onSave }: Projec
   const { data: users = [] } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {
-      const res = await fetch(`${API_URL}/users`);
-      if (!res.ok) throw new Error("Failed to fetch users");
-      return res.json();
+      return api.get("/users");
     },
   });
 

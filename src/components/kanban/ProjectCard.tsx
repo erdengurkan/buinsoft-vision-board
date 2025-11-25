@@ -44,12 +44,19 @@ export const ProjectCard = ({ project, onDelete, onEdit }: ProjectCardProps) => 
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
+    e.preventDefault();
     onDelete(project.id);
   };
 
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
+    e.preventDefault();
     onEdit(project);
+  };
+
+  const handleDragHandleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
   };
 
   const deadlineStatus = getDeadlineStatus(project.deadline);
@@ -66,32 +73,6 @@ export const ProjectCard = ({ project, onDelete, onEdit }: ProjectCardProps) => 
       )}
       onClick={handleClick}
     >
-      <div {...attributes} {...listeners} className="drag-handle absolute top-2 right-2 p-1">
-        <div className="flex flex-col gap-0.5">
-          <div className="h-1 w-4 bg-muted-foreground/30 rounded" />
-          <div className="h-1 w-4 bg-muted-foreground/30 rounded" />
-          <div className="h-1 w-4 bg-muted-foreground/30 rounded" />
-        </div>
-      </div>
-
-      {/* Hardness and Benefit Display */}
-      {(project.hardness || project.benefit) && (
-        <div className="absolute top-10 right-2 text-right space-y-0.5 z-10">
-          {project.hardness && (
-            <div className="text-[10px] leading-tight">
-              <span>⚡</span>
-              <span className="ml-0.5">{project.hardness}</span>
-            </div>
-          )}
-          {project.benefit && (
-            <div className="text-[10px] leading-tight">
-              <span>💎</span>
-              <span className="ml-0.5">{project.benefit}</span>
-            </div>
-          )}
-        </div>
-      )}
-
       <div className="space-y-3">
         {needsFollowUp && (
           <div className="flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400 font-medium">
@@ -100,75 +81,106 @@ export const ProjectCard = ({ project, onDelete, onEdit }: ProjectCardProps) => 
           </div>
         )}
         
-        <div>
-          <h3 className="font-semibold text-card-foreground mb-1 pr-8">
-            {project.title}
-          </h3>
-          <p className="text-xs text-muted-foreground">{project.client}</p>
-        </div>
-
-        <div className="flex flex-wrap gap-1">
-          {project.labels.map((label) => (
-            <Badge
-              key={label.id}
-              variant="secondary"
-              className={cn("text-xs", label.color, "text-white")}
-            >
-              {label.name}
-            </Badge>
-          ))}
-        </div>
-
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <div className="flex items-center gap-1">
-            <User className="h-3 w-3" />
-            <span>{project.assignee}</span>
+        {/* Header Bölgesi: Title + Drag Handle + Hardness/Benefit */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-card-foreground mb-1">
+              {project.title}
+            </h3>
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-xs text-muted-foreground">{project.client}</p>
+              {/* Hardness and Benefit Display - Next to client */}
+              {(project.hardness || project.benefit) && (
+                <div className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground">
+                  {project.hardness && (
+                    <span>⚡{project.hardness}</span>
+                  )}
+                  {project.benefit && (
+                    <span>💎{project.benefit}</span>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-          <Badge className={cn("text-xs", priorityColors[project.priority])}>
-            {project.priority}
-          </Badge>
+          <div 
+            {...attributes} 
+            {...listeners} 
+            onClick={handleDragHandleClick}
+            className="drag-handle flex-shrink-0 p-1.5 cursor-grab active:cursor-grabbing bg-card/80 backdrop-blur-sm rounded hover:bg-card/90 transition-colors"
+          >
+            <div className="flex flex-col gap-0.5">
+              <div className="h-1 w-4 bg-muted-foreground/40 rounded" />
+              <div className="h-1 w-4 bg-muted-foreground/40 rounded" />
+              <div className="h-1 w-4 bg-muted-foreground/40 rounded" />
+            </div>
+          </div>
         </div>
 
-        {project.deadline && (
+        {project.labels.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {project.labels.map((label) => (
+              <Badge
+                key={label.id}
+                variant="secondary"
+                className={cn("text-xs", label.color, "text-white")}
+              >
+                {label.name}
+              </Badge>
+            ))}
+          </div>
+        )}
+
+        {/* Deadline/Date Display */}
+        {project.deadline ? (
           <div className={cn(
             "flex items-center gap-1 text-xs font-medium",
             deadlineStatus === "overdue" ? "text-red-600 dark:text-red-400" :
             deadlineStatus === "soon" ? "text-orange-600 dark:text-orange-400" :
             "text-muted-foreground"
           )}>
-            <Calendar className="h-3 w-3" />
+            <Calendar className="h-3 w-3 flex-shrink-0" />
             <span>Due: {format(project.deadline, "MMM d, yyyy")}</span>
           </div>
-        )}
-
-        {!project.deadline && (
+        ) : (
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Calendar className="h-3 w-3" />
+            <Calendar className="h-3 w-3 flex-shrink-0" />
             <span>
               {project.startDate.toLocaleDateString()} -{" "}
               {project.endDate.toLocaleDateString()}
             </span>
           </div>
         )}
-      </div>
 
-      <div className="absolute bottom-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6"
-          onClick={handleEdit}
-        >
-          <Edit className="h-3 w-3 text-primary" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6"
-          onClick={handleDelete}
-        >
-          <Trash2 className="h-3 w-3 text-destructive" />
-        </Button>
+        {/* Footer Bölgesi: Assignee + Priority Badge + Edit/Delete Butonları */}
+        <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/50">
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <User className="h-3 w-3" />
+            <span>{project.assignee}</span>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Badge className={cn("text-xs", priorityColors[project.priority])}>
+              {project.priority}
+            </Badge>
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                type="button"
+                className="h-4 w-4 p-0 flex items-center justify-center hover:bg-muted/50 rounded transition-colors"
+                onClick={handleEdit}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <Edit className="h-3 w-3 text-muted-foreground hover:text-primary" />
+              </button>
+              <button
+                type="button"
+                className="h-4 w-4 p-0 flex items-center justify-center hover:bg-muted/50 rounded transition-colors"
+                onClick={handleDelete}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

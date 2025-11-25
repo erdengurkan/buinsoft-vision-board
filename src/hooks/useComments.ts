@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Comment } from "@/types";
 import { toast } from "sonner";
+import api from "@/lib/api";
 
-const API_URL = import.meta.env.VITE_API_URL || "/api";
 const DEFAULT_USER = "Emre Kılınç";
 
 export const useComments = (projectId?: string) => {
@@ -13,9 +13,7 @@ export const useComments = (projectId?: string) => {
     queryKey: ["comments", "project", projectId],
     queryFn: async () => {
       if (!projectId) return [];
-      const res = await fetch(`${API_URL}/comments?projectId=${projectId}`);
-      if (!res.ok) throw new Error("Failed to fetch comments");
-      const data = await res.json();
+      const data = await api.get<Comment[]>(`/comments?projectId=${projectId}`);
       return data.map((comment: any) => ({
         ...comment,
         timestamp: new Date(comment.timestamp),
@@ -26,18 +24,12 @@ export const useComments = (projectId?: string) => {
 
   const addCommentMutation = useMutation({
     mutationFn: async ({ projectId, taskId, text }: { projectId: string; taskId?: string; text: string }) => {
-      const res = await fetch(`${API_URL}/comments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectId,
-          taskId,
-          text,
-          user: DEFAULT_USER,
-        }),
+      return api.post<Comment>("/comments", {
+        projectId,
+        taskId,
+        text,
+        user: DEFAULT_USER,
       });
-      if (!res.ok) throw new Error("Failed to create comment");
-      return res.json();
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["comments"] });
@@ -50,11 +42,7 @@ export const useComments = (projectId?: string) => {
 
   const deleteCommentMutation = useMutation({
     mutationFn: async (commentId: string) => {
-      const res = await fetch(`${API_URL}/comments/${commentId}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) throw new Error("Failed to delete comment");
-      return res.json();
+      return api.delete(`/comments/${commentId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["comments"] });

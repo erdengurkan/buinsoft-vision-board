@@ -3,13 +3,14 @@ import * as React from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Task, Priority } from "@/types";
-import { User, Trash2, Workflow, Clock, Play, UserPlus, Calendar, Flag, Zap, Sparkles } from "lucide-react";
-import { isPast, isToday } from "date-fns";
+import { User, Trash2, Workflow, Clock, Play, UserPlus, Calendar, Flag, Zap, Sparkles, Edit2, ExternalLink } from "lucide-react";
+import { isPast, isToday, format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useActiveTimers } from "@/hooks/useActiveTimers";
+import { useNavigate } from "react-router-dom";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -36,6 +37,7 @@ const priorityColors: Record<Priority, string> = {
 };
 
 export const TaskCard = ({ task, projectId, onDelete, onViewDetails, onEditTask, onUpdateTask }: TaskCardProps) => {
+  const navigate = useNavigate();
   const {
     attributes,
     listeners,
@@ -45,7 +47,7 @@ export const TaskCard = ({ task, projectId, onDelete, onViewDetails, onEditTask,
     isDragging,
   } = useSortable({ id: task.id });
 
-  const [inlineEditOption, setInlineEditOption] = useState<"work" | "assign" | "deadline" | "priority" | "hardness" | "benefit" | null>(null);
+  const [inlineEditOption, setInlineEditOption] = useState<"work" | "assign" | "deadline" | "priority" | "hardness" | "benefit" | "title" | null>(null);
   const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
 
   // Fetch active timers for this project
@@ -77,7 +79,7 @@ export const TaskCard = ({ task, projectId, onDelete, onViewDetails, onEditTask,
     }
   };
 
-  const handleContextMenuAction = (option: "work" | "assign" | "deadline" | "priority" | "hardness" | "benefit", e?: React.MouseEvent) => {
+  const handleContextMenuAction = (option: "work" | "assign" | "deadline" | "priority" | "hardness" | "benefit" | "title", e?: React.MouseEvent) => {
     // Get position from the menu item that was clicked - use setTimeout to ensure context menu is still in DOM
     setTimeout(() => {
       if (e && e.currentTarget) {
@@ -144,36 +146,7 @@ export const TaskCard = ({ task, projectId, onDelete, onViewDetails, onEditTask,
               : "border-border"
           )}
         >
-          <div
-            {...attributes}
-            {...listeners}
-            className="drag-handle absolute top-2 right-2 p-1"
-          >
-            <div className="flex flex-col gap-0.5">
-              <div className="h-1 w-4 bg-muted-foreground/30 rounded" />
-              <div className="h-1 w-4 bg-muted-foreground/30 rounded" />
-            </div>
-          </div>
-
-          {/* Hardness and Benefit Display */}
-          {(task.hardness || task.benefit) && (
-            <div className="absolute top-10 right-2 text-right space-y-0.5 z-10">
-              {task.hardness && (
-                <div className="text-[10px] leading-tight">
-                  <span>⚡</span>
-                  <span className="ml-0.5">{task.hardness}</span>
-                </div>
-              )}
-              {task.benefit && (
-                <div className="text-[10px] leading-tight">
-                  <span>💎</span>
-                  <span className="ml-0.5">{task.benefit}</span>
-                </div>
-              )}
-            </div>
-          )}
-
-      <div className="space-y-1.5 pr-6">
+      <div className="space-y-1.5">
         {isBeingWorkedOn && activeTimer && (
           <div className="flex items-center gap-1 mb-1">
             <TooltipProvider>
@@ -208,12 +181,52 @@ export const TaskCard = ({ task, projectId, onDelete, onViewDetails, onEditTask,
             </TooltipProvider>
           </div>
         )}
-        <h4
-          className="font-medium text-sm text-card-foreground cursor-pointer hover:text-primary transition-colors leading-tight"
-          onClick={() => onViewDetails?.(task)}
-        >
-          {task.title}
-        </h4>
+        {/* Header: Title + Drag Handle + Hardness/Benefit */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <h4
+              className="font-medium text-sm text-card-foreground cursor-pointer hover:text-primary transition-colors leading-tight"
+              onClick={() => onViewDetails?.(task)}
+            >
+              {task.title}
+            </h4>
+            {/* Hardness and Benefit Display - Below title */}
+            {(task.hardness || task.benefit) && (
+              <div className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground mt-0.5">
+                {task.hardness && (
+                  <span>⚡{task.hardness}</span>
+                )}
+                {task.benefit && (
+                  <span>💎{task.benefit}</span>
+                )}
+              </div>
+            )}
+            {task.linkedProjectId && (
+              <Button
+                variant="secondary"
+                size="xs"
+                className="mt-1 h-6 text-[10px] px-2"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/project/${task.linkedProjectId}`);
+                }}
+              >
+                <ExternalLink className="h-3 w-3 mr-1" />
+                {task.linkedProjectTitle || "Linked project"}
+              </Button>
+            )}
+          </div>
+          <div
+            {...attributes}
+            {...listeners}
+            className="drag-handle flex-shrink-0 p-1 cursor-grab active:cursor-grabbing bg-card/80 backdrop-blur-sm rounded hover:bg-card/90 transition-colors"
+          >
+            <div className="flex flex-col gap-0.5">
+              <div className="h-1 w-4 bg-muted-foreground/30 rounded" />
+              <div className="h-1 w-4 bg-muted-foreground/30 rounded" />
+            </div>
+          </div>
+        </div>
         {task.description && (
           <div
             className="text-xs text-muted-foreground whitespace-pre-wrap [&_p]:my-0 [&_*]:text-xs [&_*]:leading-tight"
@@ -223,28 +236,47 @@ export const TaskCard = ({ task, projectId, onDelete, onViewDetails, onEditTask,
           />
         )}
 
-        <div className="flex items-center justify-between gap-2 pt-1">
+        {/* Deadline Display */}
+        {task.deadline && (
+          <div className={cn(
+            "flex items-center gap-1 text-xs font-medium",
+            isTaskOverdue ? "text-red-600 dark:text-red-400" :
+            "text-muted-foreground"
+          )}>
+            <Calendar className="h-3 w-3" />
+            <span>Due: {format(new Date(task.deadline), "MMM d, yyyy")}</span>
+          </div>
+        )}
+
+        {/* Footer: Assignee + Priority Badge + Delete Button */}
+        <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/50">
           <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0 flex-1">
             <User className="h-3 w-3 flex-shrink-0" />
             <span className="truncate">{task.assignee}</span>
           </div>
-          <Badge className={cn("text-xs flex-shrink-0 px-1.5 py-0", priorityColors[task.priority])}>
-            {task.priority}
-          </Badge>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Badge className={cn("text-xs flex-shrink-0 px-1.5 py-0", priorityColors[task.priority])}>
+              {task.priority}
+            </Badge>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-4 w-4 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted/50"
+              onClick={handleDelete}
+            >
+              <Trash2 className="h-3 w-3 text-destructive" />
+            </Button>
+          </div>
         </div>
       </div>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute bottom-2 right-2 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
-            onClick={handleDelete}
-          >
-            <Trash2 className="h-3 w-3 text-destructive" />
-          </Button>
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent className="w-48">
+        <ContextMenuItem onClick={(e) => handleContextMenuAction("title", e)}>
+          <Edit2 className="mr-2 h-4 w-4" />
+          <span>Edit Title</span>
+        </ContextMenuItem>
+        <ContextMenuSeparator />
         <ContextMenuItem onClick={(e) => handleContextMenuAction("work", e)}>
           <Play className="mr-2 h-4 w-4" />
           <span>Work on this</span>

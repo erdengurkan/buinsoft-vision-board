@@ -1,8 +1,7 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import * as bcrypt from 'bcryptjs';
-
-const prisma = new PrismaClient();
+import { generateToken } from '../lib/jwt';
 
 export const login = async (req: Request, res: Response) => {
     try {
@@ -27,14 +26,19 @@ export const login = async (req: Request, res: Response) => {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
-        // Return user info (excluding password)
+        // Generate JWT token
+        const userRole = user.userRole || 'User';
+        const organizationId = null; // Phase 1: organizationId is null, will be set in Phase 2
+        const token = generateToken(user.id, user.email, userRole, organizationId);
+
+        // Return user info (excluding password) and token
         const { password: _, ...userWithoutPassword } = user;
-        // Ensure userRole is included in response
         res.json({ 
           user: {
             ...userWithoutPassword,
-            userRole: user.userRole || 'User', // Default to 'User' if not set
-          }
+            userRole: userRole,
+          },
+          token: token
         });
     } catch (error) {
         console.error('Login error:', error);

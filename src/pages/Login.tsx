@@ -6,20 +6,28 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import api from "@/lib/api";
 
 const Login = () => {
   const navigate = useNavigate();
-  const { user, setUser, isLoading: authLoading } = useAuth();
+  const { user, token, setUser, isLoading: authLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Redirect to dashboard if already logged in
+  // Redirect to dashboard if already logged in with token
   useEffect(() => {
-    if (!authLoading && user) {
+    if (!authLoading && user && token) {
       navigate("/dashboard", { replace: true });
     }
-  }, [user, authLoading, navigate]);
+  }, [user, token, authLoading, navigate]);
+
+  // Pre-fill email from legacy user data (if exists but no token)
+  useEffect(() => {
+    if (!authLoading && user && !token && user.email && !email) {
+      setEmail(user.email);
+    }
+  }, [user, token, authLoading, email]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,46 +39,23 @@ const Login = () => {
 
     setIsLoading(true);
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "/api";
-      console.log("🔐 Login attempt:", { email, API_URL });
+      console.log("🔐 Login attempt:", { email });
       
-      // Create AbortController for timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-      
-      const res = await fetch(`${API_URL}/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-        signal: controller.signal,
-      });
-      
-      clearTimeout(timeoutId);
+      // Use api wrapper for login (no token needed for login endpoint)
+      const data = await api.post<{ user: any; token: string }>("/login", { email, password }, { token: null });
 
-      console.log("📡 Login response status:", res.status);
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: "Login failed" }));
-        throw new Error(errorData.error || "Login failed");
-      }
-
-      const data = await res.json();
       console.log("✅ Login successful:", data.user?.name);
 
-      // Save user to context and localStorage
-      if (data.user) {
-        setUser(data.user);
+      // Save token and user to context and localStorage
+      if (data.user && data.token) {
+        setUser(data.user, data.token);
       }
 
       toast.success(`Welcome back, ${data.user.name || "User"}!`);
       navigate("/dashboard");
     } catch (error: any) {
       console.error("❌ Login error:", error);
-      if (error.name === 'AbortError') {
-        toast.error("Request timeout. Please check your connection and try again.");
-      } else {
-        toast.error(error.message || "Invalid credentials");
-      }
+      toast.error(error.message || "Invalid credentials");
     } finally {
       setIsLoading(false);
     }
@@ -115,9 +100,6 @@ const Login = () => {
               {isLoading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
-          <p className="mt-4 text-center text-xs text-muted-foreground">
-            Demo: test@buinsoft.com / 123456
-          </p>
         </CardContent>
       </Card>
     </div>

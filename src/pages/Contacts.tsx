@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,12 +7,23 @@ import { Mail, Phone, Building2, Plus } from "lucide-react";
 import { useCustomers } from "@/contexts/CustomerContext";
 import { ContactFormModal } from "@/components/modals/ContactFormModal";
 import { Contact } from "@/types";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 const Contacts = () => {
   const navigate = useNavigate();
   const { customers, isLoading } = useCustomers();
+  const { user } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | undefined>(undefined);
+
+  // Redirect non-admin users
+  useEffect(() => {
+    if (user && user.userRole !== "Admin") {
+      toast.error("Access denied. Admin privileges required.");
+      navigate("/dashboard", { replace: true });
+    }
+  }, [user, navigate]);
 
   // Convert customers to Contact format
   const contacts: Contact[] = customers.map((customer) => ({
@@ -34,12 +45,24 @@ const Contacts = () => {
     setEditingContact(undefined);
   };
 
-  if (isLoading) {
+  // Show loading or redirect if not admin
+  if (isLoading || !user) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
           <p className="mt-2 text-muted-foreground">Loading contacts...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (user.userRole !== "Admin") {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Redirecting...</p>
         </div>
       </div>
     );

@@ -14,6 +14,12 @@ export const getProjects = async (req: Request, res: Response) => {
                 tasks: {
                     include: {
                         worklogs: true,
+                        linkedProject: {
+                            select: {
+                                id: true,
+                                title: true,
+                            },
+                        },
                     },
                 },
                 labels: true,

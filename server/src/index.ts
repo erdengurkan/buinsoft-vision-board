@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import serveStatic, { type ServeStaticOptions } from 'serve-static';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
@@ -36,10 +37,22 @@ console.log('  PATCH /api/workflow/status/:id -', typeof workflowController.upda
 console.log('  DELETE /api/workflow/status/:id -', typeof workflowController.deleteStatus);
 
 // Serve static files from the public directory (frontend build)
-app.use(express.static(path.join(__dirname, '../public')));
+const staticOptions: ServeStaticOptions = {
+  maxAge: '1y',
+  setHeaders: (res, filePath: string) => {
+    if (filePath.endsWith('index.html')) {
+      res.setHeader('Cache-Control', 'no-store');
+    } else {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+  },
+};
+
+app.use(serveStatic(path.join(__dirname, '../public'), staticOptions));
 
 // Handle React routing, return all requests to React app
 app.get('*', (req: Request, res: Response) => {
+    res.setHeader('Cache-Control', 'no-store');
     res.sendFile(path.join(__dirname, '../public', 'index.html'));
 });
 

@@ -30,6 +30,8 @@ model Project {
   tasks            Task[]
   labels           Label[]
   workflowStatuses WorkflowStatus[]  // Project-specific statuses
+  todos            Todo[]
+  linkedTasks      Task[] @relation("TaskLinkedProject")
 }
 
 model Task {
@@ -49,6 +51,9 @@ model Task {
   
   projectId   String
   project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  linkedProjectId String?
+  linkedProject   Project? @relation("TaskLinkedProject", fields: [linkedProjectId], references: [id], onDelete: SetNull)
 
   worklogs    WorklogEntry[]
   activeTimer ActiveTimer?
@@ -83,6 +88,9 @@ model Todo {
   mentions  String[]
   taskId    String?   // İlişkili task ID'si
   taskTitle String?   // Task başlığı (hızlı erişim için)
+  projectId String?
+  project   Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  projectTitle String?
 }
 
 model WorkflowStatus {

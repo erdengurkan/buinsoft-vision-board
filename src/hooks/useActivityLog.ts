@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ActivityLog, ActivityType } from "@/types";
 import { toast } from "sonner";
+import api from "@/lib/api";
 
-const API_URL = import.meta.env.VITE_API_URL || "/api";
 const DEFAULT_USER = "Emre Kılınç";
 
 export const useActivityLog = (projectId?: string) => {
@@ -13,9 +13,7 @@ export const useActivityLog = (projectId?: string) => {
     queryKey: ["activity-logs", projectId],
     queryFn: async () => {
       if (!projectId) return [];
-      const res = await fetch(`${API_URL}/activity-logs?projectId=${projectId}`);
-      if (!res.ok) throw new Error("Failed to fetch activity logs");
-      const data = await res.json();
+      const data = await api.get<ActivityLog[]>(`/activity-logs?projectId=${projectId}`);
       return data.map((log: any) => ({
         ...log,
         timestamp: new Date(log.timestamp),
@@ -36,19 +34,13 @@ export const useActivityLog = (projectId?: string) => {
       description: string;
       metadata?: ActivityLog["metadata"];
     }) => {
-      const res = await fetch(`${API_URL}/activity-logs`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectId,
-          user: DEFAULT_USER,
-          actionType,
-          description,
-          metadata,
-        }),
+      return api.post<ActivityLog>("/activity-logs", {
+        projectId,
+        user: DEFAULT_USER,
+        actionType,
+        description,
+        metadata,
       });
-      if (!res.ok) throw new Error("Failed to create activity log");
-      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["activity-logs"] });

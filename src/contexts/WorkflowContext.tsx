@@ -23,7 +23,7 @@ interface WorkflowContextType {
 
 const WorkflowContext = createContext<WorkflowContextType | undefined>(undefined);
 
-const API_URL = import.meta.env.VITE_API_URL || "/api";
+import api from "@/lib/api";
 
 const defaultProjectStatuses: StatusColumn[] = [
   { id: "potential", name: "Potential", color: "bg-blue-500", order: 0 },
@@ -55,9 +55,7 @@ export const WorkflowProvider = ({ children }: { children: ReactNode }) => {
     queryKey: ["workflow"],
     queryFn: async () => {
       try {
-        const res = await fetch(`${API_URL}/workflow`);
-        if (!res.ok) throw new Error("Failed to fetch workflow");
-        return res.json();
+        return await api.get("/workflow");
       } catch (e) {
         // Fallback to defaults if API fails (e.g. during initial setup)
         return {
@@ -107,32 +105,11 @@ export const WorkflowProvider = ({ children }: { children: ReactNode }) => {
   // Task Status CRUD functions
   const addTaskStatus = async (status: Omit<StatusColumn, "id"> & { order?: number }) => {
     try {
-      const url = `${API_URL}/workflow/status`;
       const payload = {
         ...status,
         type: "task",
       };
-      console.log('🔍 POST Request to:', url);
-      console.log('📦 Payload:', payload);
-      console.log('🌐 API_URL:', API_URL);
-
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      console.log('📡 Response status:', res.status, res.statusText);
-      console.log('📡 Response URL:', res.url);
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: "Failed to create status" }));
-        console.error("Failed to add task status:", res.status, errorData);
-        throw new Error(errorData.error || "Failed to create status");
-      }
-
-      const newStatus = await res.json();
-      console.log("Status created successfully:", newStatus);
+      const newStatus = await api.post("/workflow/status", payload);
       queryClient.invalidateQueries({ queryKey: ["workflow"] });
       return newStatus;
     } catch (error) {
@@ -143,42 +120,17 @@ export const WorkflowProvider = ({ children }: { children: ReactNode }) => {
 
   const updateTaskStatus = async (id: string, updates: Partial<StatusColumn>) => {
     try {
-      console.log("🌐 WorkflowContext: Updating task status via API:", { id, updates });
-      console.log("🌐 API URL:", `${API_URL}/workflow/status/${id}`);
-
-      const res = await fetch(`${API_URL}/workflow/status/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updates),
-      });
-
-      console.log("🌐 Response status:", res.status);
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        console.error("🌐 API Error response:", errorData);
-        throw new Error(errorData.error || "Failed to update status");
-      }
-
-      const result = await res.json();
-      console.log("🌐 API Success response:", result);
-
+      await api.patch(`/workflow/status/${id}`, updates);
       queryClient.invalidateQueries({ queryKey: ["workflow"] });
     } catch (error) {
-      console.error("🌐 Failed to update task status:", error);
+      console.error("Failed to update task status:", error);
       throw error;
     }
   };
 
   const deleteTaskStatus = async (id: string) => {
     try {
-      const res = await fetch(`${API_URL}/workflow/status/${id}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "Failed to delete status");
-      }
+      await api.delete(`/workflow/status/${id}`);
       queryClient.invalidateQueries({ queryKey: ["workflow"] });
     } catch (error) {
       console.error("Failed to delete task status:", error);
