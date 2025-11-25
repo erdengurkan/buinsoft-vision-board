@@ -43,6 +43,9 @@ export interface Task {
   benefit?: number; // 1-5 star rating for value
   worklog?: WorklogEntry[];
   flowDiagram?: FlowDiagram;
+  projectId?: string;
+  linkedProjectId?: string | null;
+  linkedProjectTitle?: string | null;
 }
 
 export interface Comment {
@@ -131,4 +134,6 @@ export interface Todo {
   mentions?: string[]; // Array of user names/ids who are mentioned in this todo
   taskId?: string; // İlişkili task ID'si
   taskTitle?: string; // Task başlığı (hızlı erişim için)
+  projectId?: string | null; // İlişkili proje ID'si
+  projectTitle?: string | null; // Proje başlığı
 }

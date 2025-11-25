@@ -1,9 +1,12 @@
 import { Response } from 'express';
 
+const HEARTBEAT_INTERVAL = 25_000; // 25s keeps Safari/Chrome connections alive
+
 interface SSEClient {
   id: string;
   response: Response;
   projectId?: string;
+  heartbeat?: NodeJS.Timeout;
 }
 
 class SSEManager {
@@ -19,10 +22,15 @@ class SSEManager {
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
     
+    const heartbeat = setInterval(() => {
+      this.writeHeartbeat(clientId);
+    }, HEARTBEAT_INTERVAL);
+
     const client: SSEClient = {
       id: clientId,
       response: res,
       projectId,
+      heartbeat,
     };
 
     this.clients.set(clientId, client);
@@ -33,6 +41,9 @@ class SSEManager {
 
     // Handle client disconnect
     res.on('close', () => {
+      if (client.heartbeat) {
+        clearInterval(client.heartbeat);
+      }
       this.clients.delete(clientId);
       console.log(`❌ SSE Client disconnected: ${clientId}, Remaining clients: ${this.clients.size}`);
     });
@@ -41,6 +52,10 @@ class SSEManager {
   }
 
   removeClient(clientId: string): void {
+    const client = this.clients.get(clientId);
+    if (client?.heartbeat) {
+      clearInterval(client.heartbeat);
+    }
     this.clients.delete(clientId);
   }
 
@@ -48,17 +63,29 @@ class SSEManager {
     const client = this.clients.get(clientId);
     if (!client) return;
 
+    this.safeWrite(clientId, `data: ${JSON.stringify(data)}\n\n`);
+  }
+
+  private writeHeartbeat(clientId: string): void {
+    this.safeWrite(clientId, `:heartbeat ${Date.now()}\n\n`);
+  }
+
+  private safeWrite(clientId: string, message: string): void {
+    const client = this.clients.get(clientId);
+    if (!client) return;
+
     try {
-      client.response.write(`data: ${JSON.stringify(data)}\n\n`);
+      client.response.write(message);
     } catch (error) {
-      console.error(`Error sending SSE to client ${clientId}:`, error);
+      console.error(`Error writing SSE to client ${clientId}:`, error);
+      if (client.heartbeat) {
+        clearInterval(client.heartbeat);
+      }
       this.clients.delete(clientId);
     }
   }
 
   broadcast(data: any, projectId?: string): void {
-    const message = `data: ${JSON.stringify(data)}\n\n`;
-    
     this.clients.forEach((client, clientId) => {
       // If projectId is specified:
       // - Send to clients watching that specific project
@@ -70,12 +97,7 @@ class SSEManager {
         // Allow: clients watching this project OR global clients (no projectId)
       }
 
-      try {
-        client.response.write(message);
-      } catch (error) {
-        console.error(`Error broadcasting to client ${clientId}:`, error);
-        this.clients.delete(clientId);
-      }
+      this.safeWrite(clientId, `data: ${JSON.stringify(data)}\n\n`);
     });
     
     console.log(`📢 Broadcasting ${data.type || 'message'} for projectId: ${projectId || 'all'}, Total clients: ${this.clients.size}`);

@@ -16,6 +16,12 @@ export const getTasks = async (req: Request, res: Response) => {
       where: { projectId },
       include: {
         worklogs: true,
+        linkedProject: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
       },
       orderBy: [
         { order: 'asc' },
@@ -38,6 +44,12 @@ export const getTaskById = async (req: Request, res: Response) => {
       include: {
         worklogs: true,
         project: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
+        linkedProject: {
           select: {
             id: true,
             title: true,
@@ -98,6 +110,12 @@ export const createTask = async (req: Request, res: Response) => {
       },
       include: {
         worklogs: true,
+        linkedProject: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
       },
     });
 
@@ -158,6 +176,19 @@ export const updateTask = async (req: Request, res: Response) => {
     if (updates.flowDiagram !== undefined) updateData.flowDiagram = updates.flowDiagram;
     if (updates.hardness !== undefined) updateData.hardness = updates.hardness ?? null;
     if (updates.benefit !== undefined) updateData.benefit = updates.benefit ?? null;
+    if (updates.linkedProjectId !== undefined) {
+      if (updates.linkedProjectId) {
+        const linkedProject = await prisma.project.findUnique({
+          where: { id: updates.linkedProjectId },
+        });
+        if (!linkedProject) {
+          throw new AppError(404, 'Linked project not found');
+        }
+        updateData.linkedProjectId = updates.linkedProjectId;
+      } else {
+        updateData.linkedProjectId = null;
+      }
+    }
     
     // Handle date conversions
     if (updates.deadline !== undefined) {
@@ -178,6 +209,12 @@ export const updateTask = async (req: Request, res: Response) => {
       include: {
         worklogs: true,
         project: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
+        linkedProject: {
           select: {
             id: true,
             title: true,

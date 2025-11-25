@@ -2,7 +2,7 @@ import React, { createContext, useContext, ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Todo } from "@/types";
 import { toast } from "sonner";
-import { useGlobalSSE } from "@/hooks/useGlobalSSE";
+import api from "@/lib/api";
 
 interface TodoContextType {
   todos: Todo[];
@@ -15,32 +15,19 @@ interface TodoContextType {
 
 const TodoContext = createContext<TodoContextType | undefined>(undefined);
 
-const API_URL = import.meta.env.VITE_API_URL || "/api";
-
 export const TodoProvider = ({ children }: { children: ReactNode }) => {
   const queryClient = useQueryClient();
-
-  // Enable real-time updates via SSE
-  useGlobalSSE();
 
   const { data: todos = [], isLoading } = useQuery({
     queryKey: ["todos"],
     queryFn: async () => {
-      const res = await fetch(`${API_URL}/todos`);
-      if (!res.ok) throw new Error("Failed to fetch todos");
-      return res.json();
+      return api.get<Todo[]>("/todos");
     },
   });
 
   const addTodoMutation = useMutation({
     mutationFn: async (todo: Omit<Todo, "id">) => {
-      const res = await fetch(`${API_URL}/todos`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(todo),
-      });
-      if (!res.ok) throw new Error("Failed to create todo");
-      return res.json();
+      return api.post<Todo>("/todos", todo);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["todos"] });
@@ -50,13 +37,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
 
   const updateTodoMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Todo> }) => {
-      const res = await fetch(`${API_URL}/todos/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updates),
-      });
-      if (!res.ok) throw new Error("Failed to update todo");
-      return res.json();
+      return api.patch<Todo>(`/todos/${id}`, updates);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["todos"] });
@@ -65,11 +46,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
 
   const deleteTodoMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`${API_URL}/todos/${id}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) throw new Error("Failed to delete todo");
-      return res.json();
+      return api.delete(`/todos/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["todos"] });

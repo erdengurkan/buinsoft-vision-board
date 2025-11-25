@@ -15,6 +15,7 @@ import { AppLayout } from "./components/layout/AppLayout";
 import { GlobalTimerBar } from "./components/timer/GlobalTimerBar";
 import { TimerOutline } from "./components/timer/TimerOutline";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
+import { AdminRoute } from "./components/auth/AdminRoute";
 import { cn } from "./lib/utils";
 import { useGlobalSSE } from "./hooks/useGlobalSSE";
 import Login from "./pages/Login";
@@ -67,9 +68,30 @@ const AppWithSSE = () => {
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/todos" element={<Todos />} />
-            <Route path="/team" element={<Team />} />
-            <Route path="/contacts" element={<Contacts />} />
-            <Route path="/contacts/:id" element={<ContactDetail />} />
+            <Route
+              path="/team"
+              element={
+                <AdminRoute>
+                  <Team />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/contacts"
+              element={
+                <AdminRoute>
+                  <Contacts />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/contacts/:id"
+              element={
+                <AdminRoute>
+                  <ContactDetail />
+                </AdminRoute>
+              }
+            />
             <Route path="/settings" element={<Settings />} />
           </Route>
           <Route path="*" element={<NotFound />} />

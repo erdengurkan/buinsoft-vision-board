@@ -1,7 +1,7 @@
 import React, { createContext, useContext, ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useGlobalSSE } from "@/hooks/useGlobalSSE";
+import api from "@/lib/api";
 
 interface User {
   id: string;
@@ -23,35 +23,19 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
-const API_URL = import.meta.env.VITE_API_URL || "/api";
-
 export const UserProvider = ({ children }: { children: ReactNode }) => {
   const queryClient = useQueryClient();
-
-  // Enable real-time updates via SSE
-  useGlobalSSE();
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {
-      const res = await fetch(`${API_URL}/users`);
-      if (!res.ok) throw new Error("Failed to fetch users");
-      return res.json();
+      return api.get<User[]>("/users");
     },
   });
 
   const addUserMutation = useMutation({
     mutationFn: async (user: Omit<User, "id" | "createdAt"> & { password: string }) => {
-      const res = await fetch(`${API_URL}/users`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(user),
-      });
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({ error: "Failed to create user" }));
-        throw new Error(error.error || "Failed to create user");
-      }
-      return res.json();
+      return api.post<User>("/users", user);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
@@ -64,16 +48,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
   const updateUserMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<User & { password?: string }> }) => {
-      const res = await fetch(`${API_URL}/users/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updates),
-      });
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({ error: "Failed to update user" }));
-        throw new Error(error.error || "Failed to update user");
-      }
-      return res.json();
+      return api.patch<User>(`/users/${id}`, updates);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
@@ -86,14 +61,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
   const deleteUserMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`${API_URL}/users/${id}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({ error: "Failed to delete user" }));
-        throw new Error(error.error || "Failed to delete user");
-      }
-      return res.json();
+      return api.delete(`/users/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });

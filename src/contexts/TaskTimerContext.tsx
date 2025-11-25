@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
+import api from "@/lib/api";
 
 interface ActiveTimer {
   taskId: string;
@@ -89,16 +90,11 @@ export const TaskTimerProvider = ({ children }: { children: ReactNode }) => {
 
     // Send to backend for SSE broadcasting
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "/api";
       const DEFAULT_USER = "Emre Kılınç"; // TODO: Get from auth context
-      await fetch(`${API_URL}/timers/start`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          taskId,
-          projectId,
-          userId: DEFAULT_USER,
-        }),
+      await api.post("/timers/start", {
+        taskId,
+        projectId,
+        userId: DEFAULT_USER,
       });
     } catch (error) {
       console.error("Failed to start timer on backend:", error);
@@ -115,14 +111,9 @@ export const TaskTimerProvider = ({ children }: { children: ReactNode }) => {
     // Send to backend for SSE broadcasting
     if (currentTimer) {
       try {
-        const API_URL = import.meta.env.VITE_API_URL || "/api";
         const DEFAULT_USER = "Emre Kılınç"; // TODO: Get from auth context
-        await fetch(`${API_URL}/timers/stop`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userId: DEFAULT_USER,
-          }),
+        await api.post("/timers/stop", {
+          userId: DEFAULT_USER,
         });
       } catch (error) {
         console.error("Failed to stop timer on backend:", error);

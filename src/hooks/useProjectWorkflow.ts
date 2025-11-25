@@ -1,7 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { StatusColumn } from "@/types/workflow";
-
-const API_URL = import.meta.env.VITE_API_URL || "/api";
+import api from "@/lib/api";
 
 interface UseProjectWorkflowReturn {
     taskStatuses: StatusColumn[];
@@ -19,10 +18,7 @@ export const useProjectWorkflow = (projectId: string | undefined): UseProjectWor
         queryKey: ["workflow", projectId],
         queryFn: async () => {
             if (!projectId) return { statuses: [], labels: [] };
-
-            const res = await fetch(`${API_URL}/workflow?projectId=${projectId}`);
-            if (!res.ok) throw new Error("Failed to fetch workflow");
-            return res.json();
+            return api.get(`/workflow?projectId=${projectId}`);
         },
         enabled: !!projectId,
         // Remove staleTime for immediate updates
@@ -44,21 +40,13 @@ export const useProjectWorkflow = (projectId: string | undefined): UseProjectWor
         // Calculate order if not provided
         const finalOrder = order !== undefined ? order : (taskStatuses.length > 0 ? Math.max(...taskStatuses.map(s => s.order)) + 1 : 0);
 
-        const res = await fetch(`${API_URL}/workflow/status`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                name,
-                color,
-                type: "task",
-                projectId,
-                order: finalOrder,
-            }),
+        const newStatus = await api.post("/workflow/status", {
+            name,
+            color,
+            type: "task",
+            projectId,
+            order: finalOrder,
         });
-
-        if (!res.ok) throw new Error("Failed to add status");
-
-        const newStatus = await res.json();
 
         // Optimistic update - immediately update cache
         queryClient.setQueryData(["workflow", projectId], (old: any) => {
@@ -74,15 +62,7 @@ export const useProjectWorkflow = (projectId: string | undefined): UseProjectWor
     };
 
     const updateTaskStatus = async (id: string, updates: Partial<StatusColumn>) => {
-        const res = await fetch(`${API_URL}/workflow/status/${id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(updates),
-        });
-
-        if (!res.ok) throw new Error("Failed to update status");
-
-        const updated = await res.json();
+        const updated = await api.patch(`/workflow/status/${id}`, updates);
 
         // Optimistic update
         if (projectId) {
@@ -99,14 +79,7 @@ export const useProjectWorkflow = (projectId: string | undefined): UseProjectWor
     };
 
     const deleteTaskStatus = async (id: string) => {
-        const res = await fetch(`${API_URL}/workflow/status/${id}`, {
-            method: "DELETE",
-        });
-
-        if (!res.ok) {
-            const error = await res.json();
-            throw new Error(error.error || "Failed to delete status");
-        }
+        await api.delete(`/workflow/status/${id}`);
 
         // Optimistic update
         if (projectId) {

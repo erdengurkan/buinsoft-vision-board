@@ -11,6 +11,7 @@ import * as worklogController from '../controllers/worklogController';
 import * as userController from '../controllers/userController';
 import * as customerController from '../controllers/customerController';
 import { validate } from '../middleware/validation';
+import { authenticate } from '../middleware/auth';
 import { 
   createTaskSchema, 
   updateTaskSchema, 
@@ -23,8 +24,11 @@ import {
 
 const router = Router();
 
-// Auth
+// Auth (no authentication required)
 router.post('/login', authController.login);
+
+// All routes below require authentication
+router.use(authenticate);
 
 // Users
 router.get('/users', userController.getUsers);

@@ -21,6 +21,7 @@ import { useTaskTimer } from "@/contexts/TaskTimerContext";
 import { useApp } from "@/contexts/AppContext";
 import { useActiveTimers } from "@/hooks/useActiveTimers";
 import { useQueryClient } from "@tanstack/react-query";
+import api from "@/lib/api";
 
 interface TaskWorklogProps {
   taskId: string;
@@ -32,7 +33,6 @@ interface TaskWorklogProps {
 }
 
 const DEFAULT_USER = "Emre Kılınç"; // TODO: Get from auth context
-const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 const formatDuration = (seconds: number): string => {
   if (seconds < 60) {
@@ -111,18 +111,10 @@ export const TaskWorklog = ({
 
     // FIRST: Stop backend timer (this will broadcast timer_stopped event to all clients)
     try {
-      const stopResponse = await fetch(`${API_URL}/timers/stop`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: DEFAULT_USER,
-          taskId: taskId, // Stop specific task timer
-        }),
+      await api.post("/timers/stop", {
+        userId: DEFAULT_USER,
+        taskId: taskId,
       });
-
-      if (!stopResponse.ok) {
-        console.error("Failed to stop backend timer", stopResponse.status);
-      }
     } catch (error) {
       console.error("Error stopping backend timer:", error);
     }
@@ -134,24 +126,14 @@ export const TaskWorklog = ({
     // THIRD: Save worklog if duration is valid
     if (durationMs > 0) {
       try {
-        const response = await fetch(`${API_URL}/worklogs`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            taskId,
-            durationMs,
-            startedAt: startedAt.toISOString(),
-            stoppedAt: stoppedAt.toISOString(),
-            user: DEFAULT_USER,
-            description: description.trim() || undefined,
-          }),
+        const savedWorklog = await api.post("/worklogs", {
+          taskId,
+          durationMs,
+          startedAt: startedAt.toISOString(),
+          stoppedAt: stoppedAt.toISOString(),
+          user: DEFAULT_USER,
+          description: description.trim() || undefined,
         });
-
-        if (!response.ok) {
-          throw new Error("Failed to save worklog");
-        }
-
-        const savedWorklog = await response.json();
         
         // Also call onAddWorklog for local state update
         onAddWorklog({

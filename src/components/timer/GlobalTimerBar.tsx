@@ -8,8 +8,7 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-
-const API_URL = import.meta.env.VITE_API_URL || "/api";
+import api from "@/lib/api";
 
 const formatTimer = (seconds: number): string => {
   if (seconds < 60) {
@@ -98,24 +97,19 @@ export const GlobalTimerBar = () => {
     // SSE event will automatically clear local timer in TaskTimerContext
     try {
       console.log("🛑 GlobalTimerBar: Stopping backend timer");
-      const stopResponse = await fetch(`${API_URL}/timers/stop`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      try {
+        await api.post("/timers/stop", {
           userId: DEFAULT_USER,
-          taskId: activeTimer.taskId, // Stop specific task timer
-        }),
-      });
-
-      if (!stopResponse.ok) {
-        console.error("❌ GlobalTimerBar: Failed to stop backend timer", stopResponse.status);
-        // If backend stop fails, still try to stop local timer
+          taskId: activeTimer.taskId,
+        });
+        console.log("✅ GlobalTimerBar: Backend timer stopped, SSE will clear local timer");
+        // Also stop local timer immediately for instant UI feedback
         if (localTimer) {
           await stopTimer();
         }
-      } else {
-        console.log("✅ GlobalTimerBar: Backend timer stopped, SSE will clear local timer");
-        // Also stop local timer immediately for instant UI feedback
+      } catch (error) {
+        console.error("❌ GlobalTimerBar: Failed to stop backend timer", error);
+        // If backend stop fails, still try to stop local timer
         if (localTimer) {
           await stopTimer();
         }
@@ -139,23 +133,9 @@ export const GlobalTimerBar = () => {
           user: DEFAULT_USER,
         };
         
-        console.log("📤 GlobalTimerBar: Sending worklog to backend", `${API_URL}/worklogs`, worklogData);
+        console.log("📤 GlobalTimerBar: Sending worklog to backend", worklogData);
         
-        const response = await fetch(`${API_URL}/worklogs`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(worklogData),
-        });
-
-        console.log("📥 GlobalTimerBar: Response status", response.status, response.statusText);
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error("❌ GlobalTimerBar: Response error", errorText);
-          throw new Error(`Failed to save worklog: ${response.status} ${response.statusText}`);
-        }
-
-        const savedWorklog = await response.json();
+        const savedWorklog = await api.post("/worklogs", worklogData);
         console.log("✅ GlobalTimerBar: Worklog saved", savedWorklog);
 
         // Also call addWorklogEntry for local state update

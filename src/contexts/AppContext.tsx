@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Project } from "@/types";
 import { toast } from "sonner";
 import { useAuth } from "./AuthContext";
+import api from "@/lib/api";
 
 interface AppContextType {
   projects: Project[];
@@ -15,8 +16,6 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const API_URL = import.meta.env.VITE_API_URL || "/api";
-
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -26,18 +25,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ["projects", user?.name],
     queryFn: async () => {
-      const url = new URL(`${API_URL}/projects`, window.location.origin);
+      let endpoint = "/projects";
       if (user?.name) {
-        url.searchParams.append("userName", user.name);
+        endpoint += `?userName=${encodeURIComponent(user.name)}`;
       }
-      console.log("🔍 Fetching projects from:", url.toString());
-      const res = await fetch(url.toString());
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error("❌ Failed to fetch projects:", res.status, errorText);
-        throw new Error(`Failed to fetch projects: ${res.status}`);
-      }
-      const data = await res.json();
+      console.log("🔍 Fetching projects from:", endpoint);
+      const data = await api.get<Project[]>(endpoint);
       console.log("✅ Projects fetched:", data.length, "projects");
       // Parse date strings to Date objects
       return data.map((project: any) => ({
@@ -49,6 +42,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           ...task,
           deadline: task.deadline ? new Date(task.deadline) : undefined,
           createdAt: task.createdAt ? new Date(task.createdAt) : new Date(),
+          projectId: task.projectId ?? project.id,
+          linkedProjectId: task.linkedProject?.id ?? task.linkedProjectId ?? null,
+          linkedProjectTitle: task.linkedProject?.title ?? task.linkedProjectTitle ?? null,
           // Backend returns 'worklogs' (plural), map to 'worklog' (singular) for frontend
           worklog: (task.worklogs || task.worklog || []).map((log: any) => ({
             ...log,
@@ -71,13 +67,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const addProjectMutation = useMutation({
     mutationFn: async (project: Partial<Project>) => {
-      const res = await fetch(`${API_URL}/projects`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(project),
-      });
-      if (!res.ok) throw new Error("Failed to create project");
-      return res.json();
+      return api.post<Project>("/projects", project);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
@@ -92,14 +82,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Project> }) => {
       // Remove tasks from updates - tasks should be managed via /api/tasks endpoints
       const { tasks, ...projectUpdates } = updates;
-
-      const res = await fetch(`${API_URL}/projects/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(projectUpdates),
-      });
-      if (!res.ok) throw new Error("Failed to update project");
-      return res.json();
+      return api.patch<Project>(`/projects/${id}`, projectUpdates);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
@@ -112,11 +95,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const deleteProjectMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`${API_URL}/projects/${id}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) throw new Error("Failed to delete project");
-      return res.json();
+      return api.delete(`/projects/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });

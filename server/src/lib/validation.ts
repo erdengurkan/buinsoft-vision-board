@@ -49,6 +49,7 @@ export const updateTaskSchema = createTaskSchema
     priority: z.enum(['Low', 'Medium', 'High', 'Critical']).optional(), // No default
     description: z.string().optional(), // No default
     followUp: z.boolean().optional(), // No default
+    linkedProjectId: z.string().uuid('Invalid project ID').nullable().optional(),
   });
 
 export const reorderTasksSchema = z.object({
